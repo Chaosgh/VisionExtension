@@ -70,12 +70,18 @@ class VisionActivity(
         val eyeX = currentPosition.x
         val eyeY = currentPosition.y + context.entityState.eyeHeight
         val eyeZ = currentPosition.z
-        val forward = fromYawPitch(currentPosition.yaw, currentPosition.pitch)
+
+        val state = context.entityState
+        val yaw = state.javaClass.methods.find { it.name == "getYaw" }
+            ?.invoke(state) as? Float ?: currentPosition.yaw
+        val pitch = state.javaClass.methods.find { it.name == "getPitch" }
+            ?.invoke(state) as? Float ?: currentPosition.pitch
+        val forward = fromYawPitch(yaw, pitch)
 
         context.viewers.filter { it.isLookable }.forEach { player ->
             val origin = org.bukkit.Location(player.world, eyeX, eyeY, eyeZ)
             if (showParticles) {
-                spawnShapeParticles(origin, forward, currentPosition.yaw, currentPosition.pitch, player)
+                spawnShapeParticles(origin, forward, yaw, pitch, player)
             }
 
             val dir = player.eyeLocation.toVector().subtract(Vector(eyeX, eyeY, eyeZ))
@@ -84,7 +90,8 @@ class VisionActivity(
 
             val inside = when (shape) {
                 VisionShape.CONE -> {
-                    val angle = Math.toDegrees(acos(forwardNorm.dot(dir.clone().normalize())))
+                    val dot = forwardNorm.dot(dir.clone().normalize()).coerceIn(-1.0, 1.0)
+                    val angle = Math.toDegrees(acos(dot))
                     distance <= radius && angle <= fov / 2
                 }
                 VisionShape.LINE -> {
@@ -135,23 +142,31 @@ class VisionActivity(
         viewer: Player
     ) {
         val steps = (distance * 2).toInt().coerceAtLeast(1).coerceAtMost(40)
-        val widthSteps = (width * 2).toInt().coerceAtLeast(1).coerceAtMost(40)
         val forwardStep = direction.clone().normalize().multiply(distance / steps)
-        var base = origin.clone()
         val right = direction.clone().normalize().crossProduct(Vector(0.0, 1.0, 0.0)).apply {
             if (lengthSquared() == 0.0) {
                 x = 1.0; y = 0.0; z = 0.0
             }
             normalize()
         }
-        val sideStep = right.clone().multiply(width / widthSteps)
-        repeat(steps) {
-            var side = base.clone().add(right.clone().multiply(-width / 2))
-            repeat(widthSteps + 1) {
-                viewer.spawnParticle(particle, side, 1, 0.0, 0.0, 0.0, 0.0)
-                side.add(sideStep)
-            }
-            base.add(forwardStep)
+        val leftEdge = origin.clone().add(right.clone().multiply(-width / 2))
+        val rightEdge = origin.clone().add(right.clone().multiply(width / 2))
+        repeat(steps + 1) {
+            viewer.spawnParticle(particle, leftEdge, 1, 0.0, 0.0, 0.0, 0.0)
+            viewer.spawnParticle(particle, rightEdge, 1, 0.0, 0.0, 0.0, 0.0)
+            leftEdge.add(forwardStep)
+            rightEdge.add(forwardStep)
+        }
+        var start = origin.clone().add(right.clone().multiply(-width / 2))
+        val sideStep = right.clone().multiply(width / steps)
+        repeat(steps + 1) {
+            viewer.spawnParticle(particle, start, 1, 0.0, 0.0, 0.0, 0.0)
+            start.add(sideStep)
+        }
+        start = origin.clone().add(direction.clone().normalize().multiply(distance)).add(right.clone().multiply(-width / 2))
+        repeat(steps + 1) {
+            viewer.spawnParticle(particle, start, 1, 0.0, 0.0, 0.0, 0.0)
+            start.add(sideStep)
         }
     }
 
@@ -162,37 +177,30 @@ class VisionActivity(
         pitch: Float,
         viewer: Player
     ) {
-        val radialSteps = (radius * 2).toInt().coerceAtLeast(1).coerceAtMost(40)
         val yawSteps = (fov / 10).toInt().coerceAtLeast(1).coerceAtMost(36)
         val pitchSteps = (fov / 10).toInt().coerceAtLeast(1).coerceAtMost(36)
-        for (r in 0..radialSteps) {
-            val dist = radius * r / radialSteps
-            for (yStep in 0..yawSteps) {
-                val yawOffset = -fov / 2 + fov * yStep / yawSteps
-                for (pStep in 0..pitchSteps) {
-                    val pitchOffset = -fov / 2 + fov * pStep / pitchSteps
-                    val dir = fromYawPitch(
-                        (yaw + yawOffset).toFloat(),
-                        (pitch + pitchOffset).toFloat()
-                    ).normalize().multiply(dist)
-                    val loc = origin.clone().add(dir)
-                    viewer.spawnParticle(particle, loc, 1, 0.0, 0.0, 0.0, 0.0)
-                }
+        val dist = radius
+        for (yStep in 0..yawSteps) {
+            val yawOffset = -fov / 2 + fov * yStep / yawSteps
+            for (pStep in 0..pitchSteps) {
+                val pitchOffset = -fov / 2 + fov * pStep / pitchSteps
+                val dir = fromYawPitch(
+                    (yaw + yawOffset).toFloat(),
+                    (pitch + pitchOffset).toFloat()
+                ).normalize().multiply(dist)
+                val loc = origin.clone().add(dir)
+                viewer.spawnParticle(particle, loc, 1, 0.0, 0.0, 0.0, 0.0)
             }
         }
     }
 
     private fun spawnDisk(origin: org.bukkit.Location, radius: Double, viewer: Player) {
-        val radialSteps = radius.toInt().coerceAtLeast(1).coerceAtMost(40)
-        for (r in 0..radialSteps) {
-            val dist = radius * r / radialSteps
-            val points = (dist * 4).toInt().coerceAtLeast(1).coerceAtMost(200)
-            for (i in 0 until points) {
-                val angle = 2 * PI * i / points
-                val x = origin.x + cos(angle) * dist
-                val z = origin.z + sin(angle) * dist
-                viewer.spawnParticle(particle, x, origin.y, z, 1, 0.0, 0.0, 0.0, 0.0)
-            }
+        val points = (radius * 8).toInt().coerceAtLeast(8).coerceAtMost(200)
+        for (i in 0 until points) {
+            val angle = 2 * PI * i / points
+            val x = origin.x + cos(angle) * radius
+            val z = origin.z + sin(angle) * radius
+            viewer.spawnParticle(particle, x, origin.y, z, 1, 0.0, 0.0, 0.0, 0.0)
         }
     }
 
