@@ -4,6 +4,7 @@ import com.typewritermc.core.books.pages.Colors
 import com.typewritermc.core.extension.annotations.Entry
 import com.typewritermc.core.extension.annotations.Help
 import com.typewritermc.engine.paper.entry.entity.*
+import com.typewritermc.engine.paper.entry.findDisplay
 import com.typewritermc.engine.paper.entry.entries.GenericEntityActivityEntry
 import com.typewritermc.engine.paper.utils.isLookable
 import org.bukkit.Particle
@@ -68,15 +69,23 @@ class VisionActivity(
     override fun tick(context: ActivityContext): TickResult {
         if (!context.isViewed) return TickResult.IGNORED
 
-        val eyeX = currentPosition.x
-        val eyeY = currentPosition.y + context.entityState.eyeHeight
-        val eyeZ = currentPosition.z
-
-        val yaw = currentPosition.yaw
-        val pitch = currentPosition.pitch
-        val forward = fromYawPitch(yaw, pitch)
-
         context.viewers.filter { it.isLookable }.forEach { player ->
+            val base =
+                context.instanceRef.findDisplay<AudienceEntityDisplay>()
+                    ?.position(player.uniqueId)
+                    ?.toProperty()
+                    ?: currentPosition
+
+            currentPosition = base
+
+            val eyeX = base.x
+            val eyeY = base.y + context.entityState.eyeHeight
+            val eyeZ = base.z
+
+            val yaw = base.yaw
+            val pitch = base.pitch
+            val forward = fromYawPitch(yaw, pitch)
+
             val origin = org.bukkit.Location(player.world, eyeX, eyeY, eyeZ)
             if (showParticles) {
                 spawnShapeParticles(origin, yaw, pitch, player)
