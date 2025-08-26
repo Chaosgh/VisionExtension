@@ -16,6 +16,7 @@ import kotlin.math.asin
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.tan
 
 @Entry(
     "vision_activity",
@@ -49,6 +50,7 @@ class VisionActivityEntry(
 
 enum class VisionShape {
     CONE,
+    LINE,
     SPHERE,
 }
 
@@ -101,6 +103,14 @@ class VisionActivity(
                     val angle = Math.toDegrees(acos(dot))
                     distance <= radius && angle <= fov / 2
                 }
+                VisionShape.LINE -> {
+                    val projection = forwardNorm.dot(dir)
+                    if (projection < 0 || projection > radius) false
+                    else {
+                        val lateral = dir.clone().subtract(forwardNorm.clone().multiply(projection))
+                        lateral.length() <= fov / 2
+                    }
+                }
                 VisionShape.SPHERE -> distance <= radius
             }
             if (!inside) return@forEach
@@ -127,7 +137,8 @@ class VisionActivity(
     ) {
         when (shape) {
             VisionShape.CONE -> spawnCone(origin, radius, yaw, pitch, viewer)
-            VisionShape.SPHERE -> spawnDisk(origin, radius, viewer)
+            VisionShape.LINE -> spawnLine(origin, radius, yaw, pitch, viewer)
+            VisionShape.SPHERE -> spawnSphere(origin, radius, viewer)
         }
     }
 
@@ -138,30 +149,115 @@ class VisionActivity(
         pitch: Float,
         viewer: Player
     ) {
-        val yawSteps = (fov / 10).toInt().coerceAtLeast(1).coerceAtMost(36)
-        val pitchSteps = (fov / 10).toInt().coerceAtLeast(1).coerceAtMost(36)
-        val dist = radius
-        for (yStep in 0..yawSteps) {
-            val yawOffset = -fov / 2 + fov * yStep / yawSteps
-            for (pStep in 0..pitchSteps) {
-                val pitchOffset = -fov / 2 + fov * pStep / pitchSteps
-                val dir = fromYawPitch(
-                    (yaw + yawOffset).toFloat(),
-                    (pitch + pitchOffset).toFloat()
-                ).normalize().multiply(dist)
-                val loc = origin.clone().add(dir)
-                viewer.spawnParticle(particle, loc, 1, 0.0, 0.0, 0.0, 0.0)
-            }
+        val forward = fromYawPitch(yaw, pitch).normalize()
+        val right = forward.clone().crossProduct(Vector(0.0, 1.0, 0.0)).normalize()
+        val up = right.clone().crossProduct(forward).normalize()
+
+        val baseRadius = radius * tan(Math.toRadians(fov / 2))
+        val center = origin.clone().add(forward.clone().multiply(radius))
+
+        val steps = (fov / 5).toInt().coerceAtLeast(8).coerceAtMost(72)
+        for (i in 0 until steps) {
+            val angle = 2 * Math.PI * i / steps
+            val point = center.clone()
+                .add(right.clone().multiply(cos(angle) * baseRadius))
+                .add(up.clone().multiply(sin(angle) * baseRadius))
+            viewer.spawnParticle(particle, point, 1, 0.0, 0.0, 0.0, 0.0)
+        }
+
+        val edgeAngles = listOf(0.0, Math.PI / 2, Math.PI, 3 * Math.PI / 2)
+        edgeAngles.forEach { ang ->
+            val point = center.clone()
+                .add(right.clone().multiply(cos(ang) * baseRadius))
+                .add(up.clone().multiply(sin(ang) * baseRadius))
+            drawLine(origin, point, viewer)
         }
     }
 
-    private fun spawnDisk(origin: org.bukkit.Location, radius: Double, viewer: Player) {
-        val points = (radius * 8).toInt().coerceAtLeast(8).coerceAtMost(200)
+    private fun spawnLine(
+        origin: org.bukkit.Location,
+        radius: Double,
+        yaw: Float,
+        pitch: Float,
+        viewer: Player
+    ) {
+        val forward = fromYawPitch(yaw, pitch).normalize()
+        val right = forward.clone().crossProduct(Vector(0.0, 1.0, 0.0)).normalize()
+        val up = right.clone().crossProduct(forward).normalize()
+
+        val halfW = fov / 2
+        val halfH = fov / 2
+
+        val end = origin.clone().add(forward.clone().multiply(radius))
+
+        val startCorners = arrayOf(
+            origin.clone().add(right.clone().multiply(halfW)).add(up.clone().multiply(halfH)),
+            origin.clone().add(right.clone().multiply(halfW)).add(up.clone().multiply(-halfH)),
+            origin.clone().add(right.clone().multiply(-halfW)).add(up.clone().multiply(halfH)),
+            origin.clone().add(right.clone().multiply(-halfW)).add(up.clone().multiply(-halfH))
+        )
+        val endCorners = arrayOf(
+            end.clone().add(right.clone().multiply(halfW)).add(up.clone().multiply(halfH)),
+            end.clone().add(right.clone().multiply(halfW)).add(up.clone().multiply(-halfH)),
+            end.clone().add(right.clone().multiply(-halfW)).add(up.clone().multiply(halfH)),
+            end.clone().add(right.clone().multiply(-halfW)).add(up.clone().multiply(-halfH))
+        )
+
+        for (i in 0 until 4) {
+            drawLine(startCorners[i], startCorners[(i + 1) % 4], viewer)
+            drawLine(endCorners[i], endCorners[(i + 1) % 4], viewer)
+            drawLine(startCorners[i], endCorners[i], viewer)
+        }
+    }
+
+    private fun spawnSphere(origin: org.bukkit.Location, radius: Double, viewer: Player) {
+        val points = (radius * 8).toInt().coerceAtLeast(16).coerceAtMost(200)
         for (i in 0 until points) {
             val angle = 2 * PI * i / points
-            val x = origin.x + cos(angle) * radius
-            val z = origin.z + sin(angle) * radius
-            viewer.spawnParticle(particle, x, origin.y, z, 1, 0.0, 0.0, 0.0, 0.0)
+            viewer.spawnParticle(
+                particle,
+                origin.x + cos(angle) * radius,
+                origin.y,
+                origin.z + sin(angle) * radius,
+                1,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            )
+            viewer.spawnParticle(
+                particle,
+                origin.x,
+                origin.y + cos(angle) * radius,
+                origin.z + sin(angle) * radius,
+                1,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            )
+            viewer.spawnParticle(
+                particle,
+                origin.x + cos(angle) * radius,
+                origin.y + sin(angle) * radius,
+                origin.z,
+                1,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            )
+        }
+    }
+
+    private fun drawLine(start: org.bukkit.Location, end: org.bukkit.Location, viewer: Player) {
+        val distance = start.distance(end)
+        val steps = (distance * 4).toInt().coerceAtLeast(1)
+        val step = end.clone().subtract(start).toVector().multiply(1.0 / steps)
+        val point = start.clone()
+        for (i in 0..steps) {
+            viewer.spawnParticle(particle, point, 1, 0.0, 0.0, 0.0, 0.0)
+            point.add(step)
         }
     }
 
