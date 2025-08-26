@@ -5,14 +5,15 @@ import com.typewritermc.core.entries.Query
 import com.typewritermc.core.entries.Ref
 import com.typewritermc.core.entries.emptyRef
 import com.typewritermc.core.extension.annotations.Entry
-import com.typewritermc.core.extension.annotations.EntryListener
 import com.typewritermc.engine.paper.entry.TriggerableEntry
 import com.typewritermc.engine.paper.entry.entries.EntityInstanceEntry
 import com.typewritermc.engine.paper.entry.entries.EventEntry
 import com.typewritermc.engine.paper.entry.triggerEntriesFor
 import org.bukkit.entity.Player
 import org.bukkit.event.Event
+import org.bukkit.event.EventHandler
 import org.bukkit.event.HandlerList
+import org.bukkit.event.Listener
 
 @Entry(
     "on_player_seen",
@@ -42,10 +43,13 @@ class PlayerSeenEvent(
     }
 }
 
-@EntryListener(PlayerSeenEntry::class)
-fun onPlayerSeen(event: PlayerSeenEvent, query: Query<PlayerSeenEntry>) {
-    query.findWhere { it.entity == event.instance }
-        .forEach { entry ->
-            entry.triggers.triggerEntriesFor(event.player) { }
-        }
+object PlayerSeenListener : Listener {
+    @EventHandler
+    fun onPlayerSeen(event: PlayerSeenEvent) {
+        Query(PlayerSeenEntry::class)
+            .findWhere { it.entity == event.instance }
+            .forEach { entry ->
+                entry.triggers.triggerEntriesFor(event.player) { }
+            }
+    }
 }
