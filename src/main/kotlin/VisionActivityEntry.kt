@@ -30,14 +30,12 @@ class VisionActivityEntry(
     val fov: Double = 90.0,
     @Help("Shape of the vision area")
     val shape: VisionShape = VisionShape.CONE,
-
 ) : GenericEntityActivityEntry {
     override fun create(
         context: ActivityContext,
         currentLocation: PositionProperty
     ): EntityActivity<in ActivityContext> {
         return VisionActivity(radius, fov, shape, currentLocation)
-
     }
 }
 
@@ -45,14 +43,13 @@ enum class VisionShape {
     CONE,
     LINE,
     SPHERE,
-
 }
 
 class VisionActivity(
     private val radius: Double,
     private val fov: Double,
     private val shape: VisionShape,
-
+    start: PositionProperty,
 ) : EntityActivity<ActivityContext> {
 
     override var currentPosition: PositionProperty = start
@@ -88,7 +85,6 @@ class VisionActivity(
             val lookYaw = Math.toDegrees(atan2(-dirNorm.x, dirNorm.z)).toFloat()
             val lookPitch = Math.toDegrees(-asin(dirNorm.y)).toFloat()
             currentPosition = currentPosition.withRotation(lookYaw, lookPitch)
-
         }
 
         return TickResult.IGNORED
@@ -112,7 +108,6 @@ class VisionActivity(
     private fun spawnLine(origin: org.bukkit.Location, direction: Vector, distance: Double, viewer: Player) {
         val steps = (distance * 4).toInt()
         val step = direction.clone().normalize().multiply(distance / steps)
-
         var loc = origin.clone()
         repeat(steps) {
             viewer.spawnParticle(Particle.END_ROD, loc, 1, 0.0, 0.0, 0.0, 0.0)
@@ -150,4 +145,3 @@ class VisionActivity(
         return Vector(-sin(yawRad) * xz, -sin(pitchRad), cos(yawRad) * xz)
     }
 }
-
