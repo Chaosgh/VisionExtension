@@ -284,4 +284,3 @@ class VisionActivity(
         return Vector(-sin(yawRad) * xz, -sin(pitchRad), cos(yawRad) * xz)
     }
 }
-

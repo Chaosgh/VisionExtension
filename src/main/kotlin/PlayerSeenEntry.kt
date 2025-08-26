@@ -49,4 +49,3 @@ fun onPlayerSeen(event: PlayerSeenEvent, query: Query<PlayerSeenEntry>) {
             entry.triggers.triggerEntriesFor(event.player) { }
         }
 }
-
