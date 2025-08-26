@@ -32,7 +32,7 @@ class VisionActivityEntry(
     override val name: String = "",
     @Help("Maximum distance in blocks the NPC can see")
     val radius: Double = 5.0,
-    @Help("Field of view in degrees")
+    @Help("Field of view in degrees (max 170)")
     val fov: Double = 90.0,
     @Help("Shape of the vision area")
     val shape: VisionShape = VisionShape.CONE,
@@ -59,13 +59,15 @@ enum class VisionShape {
 
 class VisionActivity(
     private val radius: Double,
-    private val fov: Double,
+    fovDegrees: Double,
     private val shape: VisionShape,
     private val showParticles: Boolean,
     private val particle: Particle,
     private val lookAtPlayer: Boolean,
     start: PositionProperty,
 ) : EntityActivity<ActivityContext> {
+
+    private val fov = fovDegrees.coerceIn(1.0, 170.0)
 
     override var currentPosition: PositionProperty = start
     private val seenPlayers = mutableSetOf<UUID>()
