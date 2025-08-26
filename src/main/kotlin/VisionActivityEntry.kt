@@ -27,7 +27,7 @@ class VisionActivityEntry(
     override val name: String = "",
     @Help("Maximum distance in blocks the NPC can see")
     val radius: Double = 5.0,
-    @Help("Field of view in degrees (line width in blocks when using LINE shape)")
+    @Help("Field of view in degrees")
     val fov: Double = 90.0,
     @Help("Shape of the vision area")
     val shape: VisionShape = VisionShape.CONE,
@@ -48,7 +48,6 @@ class VisionActivityEntry(
 
 enum class VisionShape {
     CONE,
-    LINE,
     SPHERE,
 }
 
@@ -72,16 +71,16 @@ class VisionActivity(
         val eyeZ = currentPosition.z
 
         val state = context.entityState
-        val yaw = state.javaClass.methods.find { it.name == "getYaw" }
-            ?.invoke(state) as? Float ?: currentPosition.yaw
-        val pitch = state.javaClass.methods.find { it.name == "getPitch" }
-            ?.invoke(state) as? Float ?: currentPosition.pitch
+        val yaw = state.javaClass.methods.firstOrNull { it.name in listOf("getYaw", "getYRot", "getBodyYaw") }
+            ?.invoke(state)?.let { (it as Number).toFloat() } ?: currentPosition.yaw
+        val pitch = state.javaClass.methods.firstOrNull { it.name in listOf("getPitch", "getXRot") }
+            ?.invoke(state)?.let { (it as Number).toFloat() } ?: currentPosition.pitch
         val forward = fromYawPitch(yaw, pitch)
 
         context.viewers.filter { it.isLookable }.forEach { player ->
             val origin = org.bukkit.Location(player.world, eyeX, eyeY, eyeZ)
             if (showParticles) {
-                spawnShapeParticles(origin, forward, yaw, pitch, player)
+                spawnShapeParticles(origin, yaw, pitch, player)
             }
 
             val dir = player.eyeLocation.toVector().subtract(Vector(eyeX, eyeY, eyeZ))
@@ -93,14 +92,6 @@ class VisionActivity(
                     val dot = forwardNorm.dot(dir.clone().normalize()).coerceIn(-1.0, 1.0)
                     val angle = Math.toDegrees(acos(dot))
                     distance <= radius && angle <= fov / 2
-                }
-                VisionShape.LINE -> {
-                    val along = dir.dot(forwardNorm)
-                    if (along < 0 || along > radius) false
-                    else {
-                        val perpendicular = dir.clone().subtract(forwardNorm.clone().multiply(along))
-                        perpendicular.length() <= fov / 2
-                    }
                 }
                 VisionShape.SPHERE -> distance <= radius
             }
@@ -122,51 +113,13 @@ class VisionActivity(
 
     private fun spawnShapeParticles(
         origin: org.bukkit.Location,
-        forward: Vector,
         yaw: Float,
         pitch: Float,
         viewer: Player
     ) {
         when (shape) {
-            VisionShape.LINE -> spawnLine(origin, forward, fov, radius, viewer)
             VisionShape.CONE -> spawnCone(origin, radius, yaw, pitch, viewer)
             VisionShape.SPHERE -> spawnDisk(origin, radius, viewer)
-        }
-    }
-
-    private fun spawnLine(
-        origin: org.bukkit.Location,
-        direction: Vector,
-        width: Double,
-        distance: Double,
-        viewer: Player
-    ) {
-        val steps = (distance * 2).toInt().coerceAtLeast(1).coerceAtMost(40)
-        val forwardStep = direction.clone().normalize().multiply(distance / steps)
-        val right = direction.clone().normalize().crossProduct(Vector(0.0, 1.0, 0.0)).apply {
-            if (lengthSquared() == 0.0) {
-                x = 1.0; y = 0.0; z = 0.0
-            }
-            normalize()
-        }
-        val leftEdge = origin.clone().add(right.clone().multiply(-width / 2))
-        val rightEdge = origin.clone().add(right.clone().multiply(width / 2))
-        repeat(steps + 1) {
-            viewer.spawnParticle(particle, leftEdge, 1, 0.0, 0.0, 0.0, 0.0)
-            viewer.spawnParticle(particle, rightEdge, 1, 0.0, 0.0, 0.0, 0.0)
-            leftEdge.add(forwardStep)
-            rightEdge.add(forwardStep)
-        }
-        var start = origin.clone().add(right.clone().multiply(-width / 2))
-        val sideStep = right.clone().multiply(width / steps)
-        repeat(steps + 1) {
-            viewer.spawnParticle(particle, start, 1, 0.0, 0.0, 0.0, 0.0)
-            start.add(sideStep)
-        }
-        start = origin.clone().add(direction.clone().normalize().multiply(distance)).add(right.clone().multiply(-width / 2))
-        repeat(steps + 1) {
-            viewer.spawnParticle(particle, start, 1, 0.0, 0.0, 0.0, 0.0)
-            start.add(sideStep)
         }
     }
 
