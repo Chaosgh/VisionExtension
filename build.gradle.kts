@@ -42,7 +42,6 @@ kotlin {
 }
 
 tasks.jar {
-    destinationDirectory.set(file("C:/Users/julie/Desktop/dev/plugins/Typewriter/extensions"))
     archiveFileName.set("VisionExtension-${version}.jar")
 }
 tasks.register<Copy>("copyJarToServer") {
