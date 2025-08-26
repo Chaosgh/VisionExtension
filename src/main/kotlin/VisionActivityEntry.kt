@@ -6,6 +6,7 @@ import com.typewritermc.core.extension.annotations.Help
 import com.typewritermc.engine.paper.entry.entity.*
 import com.typewritermc.engine.paper.entry.entries.GenericEntityActivityEntry
 import com.typewritermc.engine.paper.utils.isLookable
+import com.typewritermc.engine.paper.utils.toBukkitWorld
 import org.bukkit.Particle
 import org.bukkit.entity.Player
 import org.bukkit.util.Vector
@@ -66,19 +67,18 @@ class VisionActivity(
     override fun initialize(context: ActivityContext) {}
 
     override fun tick(context: ActivityContext): TickResult {
+        if (!context.isViewed) return TickResult.IGNORED
+
         val eyeX = currentPosition.x
         val eyeY = currentPosition.y + context.entityState.eyeHeight
         val eyeZ = currentPosition.z
 
-        val state = context.entityState
-        val yaw = state.javaClass.methods.firstOrNull { it.name in listOf("getYaw", "getYRot", "getBodyYaw") }
-            ?.invoke(state)?.let { (it as Number).toFloat() } ?: currentPosition.yaw
-        val pitch = state.javaClass.methods.firstOrNull { it.name in listOf("getPitch", "getXRot") }
-            ?.invoke(state)?.let { (it as Number).toFloat() } ?: currentPosition.pitch
+        val yaw = currentPosition.yaw
+        val pitch = currentPosition.pitch
         val forward = fromYawPitch(yaw, pitch)
 
         context.viewers.filter { it.isLookable }.forEach { player ->
-            val origin = org.bukkit.Location(player.world, eyeX, eyeY, eyeZ)
+            val origin = org.bukkit.Location(currentPosition.world.toBukkitWorld(), eyeX, eyeY, eyeZ)
             if (showParticles) {
                 spawnShapeParticles(origin, yaw, pitch, player)
             }
@@ -97,7 +97,7 @@ class VisionActivity(
             }
             if (!inside) return@forEach
 
-            val blocked = player.world.rayTraceBlocks(origin, dir.clone().normalize(), distance) != null
+            val blocked = origin.world.rayTraceBlocks(origin, dir.clone().normalize(), distance) != null
             if (blocked) return@forEach
 
             if (lookAtPlayer) {
