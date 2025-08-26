@@ -58,9 +58,9 @@ class VisionActivity(
         val eyeZ = currentPosition.z
         val forward = fromYawPitch(currentPosition.yaw, currentPosition.pitch)
 
-        val origin = org.bukkit.Location(context.world, eyeX, eyeY, eyeZ)
-
         context.viewers.filter { it.isLookable }.forEach { player ->
+            val origin = org.bukkit.Location(player.world, eyeX, eyeY, eyeZ)
+
             val dir = player.eyeLocation.toVector().subtract(Vector(eyeX, eyeY, eyeZ))
             val distance = dir.length()
             if (distance > radius) return@forEach
