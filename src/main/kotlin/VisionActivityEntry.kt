@@ -129,7 +129,12 @@ class VisionActivity(
             }
 
             if (seenPlayers.add(player.uniqueId)) {
-                Bukkit.getPluginManager().callEvent(PlayerSeenEvent(context.instanceRef, player))
+                val plugin = Bukkit.getPluginManager().getPlugin("Typewriter")
+                if (plugin != null) {
+                    Bukkit.getScheduler().runTask(plugin, Runnable {
+                        Bukkit.getPluginManager().callEvent(PlayerSeenEvent(context.instanceRef, player))
+                    })
+                }
             }
 
             if (lookAtPlayer) {
