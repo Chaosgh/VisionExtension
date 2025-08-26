@@ -32,14 +32,14 @@ class PlayerSeenEvent(
     val instance: Ref<out EntityInstanceEntry>,
     val player: Player
 ) : Event() {
-    override fun getHandlers(): HandlerList = handlers
+    override fun getHandlers(): HandlerList = handlerList
 
     companion object {
         @JvmStatic
-        private val handlers = HandlerList()
+        private val handlerList = HandlerList()
 
         @JvmStatic
-        fun getHandlerList(): HandlerList = handlers
+        fun getHandlerList(): HandlerList = handlerList
     }
 }
 
