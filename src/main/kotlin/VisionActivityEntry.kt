@@ -6,7 +6,6 @@ import com.typewritermc.core.extension.annotations.Help
 import com.typewritermc.engine.paper.entry.entity.*
 import com.typewritermc.engine.paper.entry.entries.GenericEntityActivityEntry
 import com.typewritermc.engine.paper.utils.isLookable
-import com.typewritermc.engine.paper.utils.toBukkitWorld
 import org.bukkit.Particle
 import org.bukkit.entity.Player
 import org.bukkit.util.Vector
@@ -78,7 +77,7 @@ class VisionActivity(
         val forward = fromYawPitch(yaw, pitch)
 
         context.viewers.filter { it.isLookable }.forEach { player ->
-            val origin = org.bukkit.Location(currentPosition.world.toBukkitWorld(), eyeX, eyeY, eyeZ)
+            val origin = org.bukkit.Location(player.world, eyeX, eyeY, eyeZ)
             if (showParticles) {
                 spawnShapeParticles(origin, yaw, pitch, player)
             }
