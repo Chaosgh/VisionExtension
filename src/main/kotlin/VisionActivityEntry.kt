@@ -134,8 +134,8 @@ class VisionActivity(
         distance: Double,
         viewer: Player
     ) {
-        val steps = (distance * 4).toInt().coerceAtLeast(1)
-        val widthSteps = (width * 4).toInt().coerceAtLeast(1)
+        val steps = (distance * 2).toInt().coerceAtLeast(1).coerceAtMost(40)
+        val widthSteps = (width * 2).toInt().coerceAtLeast(1).coerceAtMost(40)
         val forwardStep = direction.clone().normalize().multiply(distance / steps)
         var base = origin.clone()
         val right = direction.clone().normalize().crossProduct(Vector(0.0, 1.0, 0.0)).apply {
@@ -162,9 +162,9 @@ class VisionActivity(
         pitch: Float,
         viewer: Player
     ) {
-        val radialSteps = (radius * 2).toInt().coerceAtLeast(1)
-        val yawSteps = fov.toInt().coerceAtLeast(1)
-        val pitchSteps = fov.toInt().coerceAtLeast(1)
+        val radialSteps = (radius * 2).toInt().coerceAtLeast(1).coerceAtMost(40)
+        val yawSteps = (fov / 10).toInt().coerceAtLeast(1).coerceAtMost(36)
+        val pitchSteps = (fov / 10).toInt().coerceAtLeast(1).coerceAtMost(36)
         for (r in 0..radialSteps) {
             val dist = radius * r / radialSteps
             for (yStep in 0..yawSteps) {
@@ -183,10 +183,10 @@ class VisionActivity(
     }
 
     private fun spawnDisk(origin: org.bukkit.Location, radius: Double, viewer: Player) {
-        val radialSteps = (radius * 2).toInt().coerceAtLeast(1)
+        val radialSteps = radius.toInt().coerceAtLeast(1).coerceAtMost(40)
         for (r in 0..radialSteps) {
             val dist = radius * r / radialSteps
-            val points = (dist * 6).toInt().coerceAtLeast(1)
+            val points = (dist * 4).toInt().coerceAtLeast(1).coerceAtMost(200)
             for (i in 0 until points) {
                 val angle = 2 * PI * i / points
                 val x = origin.x + cos(angle) * dist
