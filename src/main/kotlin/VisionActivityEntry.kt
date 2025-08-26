@@ -30,12 +30,16 @@ class VisionActivityEntry(
     val fov: Double = 90.0,
     @Help("Shape of the vision area")
     val shape: VisionShape = VisionShape.CONE,
+    @Help("Display particles to visualize the vision area")
+    val showParticles: Boolean = true,
+    @Help("Particle style used when visualizing vision")
+    val particle: VisionParticle = VisionParticle.CRIT,
 ) : GenericEntityActivityEntry {
     override fun create(
         context: ActivityContext,
         currentLocation: PositionProperty
     ): EntityActivity<in ActivityContext> {
-        return VisionActivity(radius, fov, shape, currentLocation)
+        return VisionActivity(radius, fov, shape, showParticles, particle, currentLocation)
     }
 }
 
@@ -45,10 +49,18 @@ enum class VisionShape {
     SPHERE,
 }
 
+enum class VisionParticle(val particle: Particle) {
+    CRIT(Particle.CRIT),
+    FLAME(Particle.FLAME),
+    END_ROD(Particle.END_ROD),
+}
+
 class VisionActivity(
     private val radius: Double,
     private val fov: Double,
     private val shape: VisionShape,
+    private val showParticles: Boolean,
+    private val particle: VisionParticle,
     start: PositionProperty,
 ) : EntityActivity<ActivityContext> {
 
@@ -64,7 +76,9 @@ class VisionActivity(
 
         context.viewers.filter { it.isLookable }.forEach { player ->
             val origin = org.bukkit.Location(player.world, eyeX, eyeY, eyeZ)
-            spawnShapeParticles(origin, forward, player)
+            if (showParticles) {
+                spawnShapeParticles(origin, forward, player)
+            }
 
             val dir = player.eyeLocation.toVector().subtract(Vector(eyeX, eyeY, eyeZ))
             val distance = dir.length()
@@ -73,7 +87,7 @@ class VisionActivity(
 
             val inside = when (shape) {
                 VisionShape.CONE -> distance <= radius && angle <= fov / 2
-                VisionShape.LINE -> distance <= radius && angle <= 1.0
+                VisionShape.LINE -> distance <= radius && angle <= 0.5
                 VisionShape.SPHERE -> distance <= radius
             }
             if (!inside) return@forEach
@@ -93,15 +107,8 @@ class VisionActivity(
     private fun spawnShapeParticles(origin: org.bukkit.Location, forward: Vector, viewer: Player) {
         when (shape) {
             VisionShape.LINE -> spawnLine(origin, forward, radius, viewer)
-            VisionShape.CONE -> {
-                val rays = 5
-                for (i in 0 until rays) {
-                    val angle = -fov / 2 + (fov / (rays - 1)) * i
-                    val dir = rotateY(forward, angle)
-                    spawnLine(origin, dir, radius, viewer)
-                }
-            }
-            VisionShape.SPHERE -> spawnCircle(origin, radius, viewer)
+            VisionShape.CONE -> spawnCone(origin, forward, radius, viewer)
+            VisionShape.SPHERE -> spawnDisk(origin, radius, viewer)
         }
     }
 
@@ -110,18 +117,36 @@ class VisionActivity(
         val step = direction.clone().normalize().multiply(distance / steps)
         var loc = origin.clone()
         repeat(steps) {
-            viewer.spawnParticle(Particle.END_ROD, loc, 1, 0.0, 0.0, 0.0, 0.0)
+            viewer.spawnParticle(particle.particle, loc, 1, 0.0, 0.0, 0.0, 0.0)
             loc.add(step)
         }
     }
 
-    private fun spawnCircle(origin: org.bukkit.Location, radius: Double, viewer: Player) {
-        val points = 24
-        for (i in 0 until points) {
-            val angle = 2 * Math.PI * i / points
-            val x = origin.x + cos(angle) * radius
-            val z = origin.z + sin(angle) * radius
-            viewer.spawnParticle(Particle.END_ROD, x, origin.y, z, 1, 0.0, 0.0, 0.0, 0.0)
+    private fun spawnCone(origin: org.bukkit.Location, forward: Vector, radius: Double, viewer: Player) {
+        val radialSteps = (radius * 2).toInt().coerceAtLeast(1)
+        val angleSteps = fov.toInt().coerceAtLeast(1)
+        for (r in 0..radialSteps) {
+            val dist = radius * r / radialSteps
+            for (a in 0..angleSteps) {
+                val angle = -fov / 2 + fov * a / angleSteps
+                val dir = rotateY(forward, angle).normalize().multiply(dist)
+                val loc = origin.clone().add(dir)
+                viewer.spawnParticle(particle.particle, loc, 1, 0.0, 0.0, 0.0, 0.0)
+            }
+        }
+    }
+
+    private fun spawnDisk(origin: org.bukkit.Location, radius: Double, viewer: Player) {
+        val radialSteps = (radius * 2).toInt().coerceAtLeast(1)
+        for (r in 0..radialSteps) {
+            val dist = radius * r / radialSteps
+            val points = (dist * 6).toInt().coerceAtLeast(1)
+            for (i in 0 until points) {
+                val angle = 2 * Math.PI * i / points
+                val x = origin.x + cos(angle) * dist
+                val z = origin.z + sin(angle) * dist
+                viewer.spawnParticle(particle.particle, x, origin.y, z, 1, 0.0, 0.0, 0.0, 0.0)
+            }
         }
     }
 
