@@ -7,9 +7,12 @@ import com.typewritermc.engine.paper.entry.entity.*
 import com.typewritermc.engine.paper.entry.findDisplay
 import com.typewritermc.engine.paper.entry.entries.GenericEntityActivityEntry
 import com.typewritermc.engine.paper.utils.isLookable
+import org.bukkit.Bukkit
 import org.bukkit.Particle
 import org.bukkit.entity.Player
 import org.bukkit.util.Vector
+import de.chaos.PlayerSeenEvent
+import java.util.UUID
 import kotlin.math.PI
 import kotlin.math.acos
 import kotlin.math.asin
@@ -65,6 +68,7 @@ class VisionActivity(
 ) : EntityActivity<ActivityContext> {
 
     override var currentPosition: PositionProperty = start
+    private val seenPlayers = mutableSetOf<UUID>()
 
     override fun initialize(context: ActivityContext) {}
 
@@ -113,10 +117,20 @@ class VisionActivity(
                 }
                 VisionShape.SPHERE -> distance <= radius
             }
-            if (!inside) return@forEach
+            if (!inside) {
+                seenPlayers.remove(player.uniqueId)
+                return@forEach
+            }
 
             val blocked = origin.world.rayTraceBlocks(origin, dir.clone().normalize(), distance) != null
-            if (blocked) return@forEach
+            if (blocked) {
+                seenPlayers.remove(player.uniqueId)
+                return@forEach
+            }
+
+            if (seenPlayers.add(player.uniqueId)) {
+                Bukkit.getPluginManager().callEvent(PlayerSeenEvent(context.instanceRef, player))
+            }
 
             if (lookAtPlayer) {
                 val dirNorm = dir.clone().normalize()
