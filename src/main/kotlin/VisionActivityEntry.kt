@@ -8,8 +8,10 @@ import com.typewritermc.engine.paper.entry.findDisplay
 import com.typewritermc.engine.paper.entry.entries.GenericEntityActivityEntry
 import com.typewritermc.engine.paper.utils.isLookable
 import org.bukkit.Bukkit
-import org.bukkit.Particle
+import org.bukkit.Material
+import org.bukkit.entity.ItemDisplay
 import org.bukkit.entity.Player
+import org.bukkit.inventory.ItemStack
 import org.bukkit.util.Vector
 import de.chaos.PlayerSeenEvent
 import java.util.UUID
@@ -36,10 +38,10 @@ class VisionActivityEntry(
     val fov: Double = 90.0,
     @Help("Shape of the vision area")
     val shape: VisionShape = VisionShape.CONE,
-    @Help("Display particles to visualize the vision area")
-    val showParticles: Boolean = true,
-    @Help("Particle type used when visualizing vision")
-    val particle: Particle = Particle.CRIT,
+    @Help("Display item displays to visualize the vision area")
+    val showDisplays: Boolean = true,
+    @Help("Material used when visualizing vision")
+    val material: Material = Material.BARRIER,
     @Help("Rotate NPC to face players inside the vision area")
     val lookAtPlayer: Boolean = true,
 ) : GenericEntityActivityEntry {
@@ -47,7 +49,7 @@ class VisionActivityEntry(
         context: ActivityContext,
         currentLocation: PositionProperty
     ): EntityActivity<in ActivityContext> {
-        return VisionActivity(radius, fov, shape, showParticles, particle, lookAtPlayer, currentLocation)
+        return VisionActivity(radius, fov, shape, showDisplays, material, lookAtPlayer, currentLocation)
     }
 }
 
@@ -61,8 +63,8 @@ class VisionActivity(
     private val radius: Double,
     fovDegrees: Double,
     private val shape: VisionShape,
-    private val showParticles: Boolean,
-    private val particle: Particle,
+    private val showDisplays: Boolean,
+    private val material: Material,
     private val lookAtPlayer: Boolean,
     start: PositionProperty,
 ) : EntityActivity<ActivityContext> {
@@ -95,8 +97,8 @@ class VisionActivity(
             val forward = fromYawPitch(yaw, pitch)
 
             val origin = org.bukkit.Location(player.world, eyeX, eyeY, eyeZ)
-            if (showParticles) {
-                spawnShapeParticles(origin, yaw, pitch, player)
+            if (showDisplays) {
+                spawnShapeDisplays(origin, yaw, pitch, player)
             }
 
             val dir = player.eyeLocation.toVector().subtract(Vector(eyeX, eyeY, eyeZ))
@@ -150,7 +152,7 @@ class VisionActivity(
         return TickResult.IGNORED
     }
 
-    private fun spawnShapeParticles(
+    private fun spawnShapeDisplays(
         origin: org.bukkit.Location,
         yaw: Float,
         pitch: Float,
@@ -183,7 +185,7 @@ class VisionActivity(
             val point = center.clone()
                 .add(right.clone().multiply(cos(angle) * baseRadius))
                 .add(up.clone().multiply(sin(angle) * baseRadius))
-            viewer.spawnParticle(particle, point, 1, 0.0, 0.0, 0.0, 0.0)
+            spawnDisplay(point, viewer)
         }
 
         val edgeAngles = listOf(0.0, Math.PI / 2, Math.PI, 3 * Math.PI / 2)
@@ -235,39 +237,12 @@ class VisionActivity(
         val points = (radius * 8).toInt().coerceAtLeast(16).coerceAtMost(200)
         for (i in 0 until points) {
             val angle = 2 * PI * i / points
-            viewer.spawnParticle(
-                particle,
-                origin.x + cos(angle) * radius,
-                origin.y,
-                origin.z + sin(angle) * radius,
-                1,
-                0.0,
-                0.0,
-                0.0,
-                0.0
-            )
-            viewer.spawnParticle(
-                particle,
-                origin.x,
-                origin.y + cos(angle) * radius,
-                origin.z + sin(angle) * radius,
-                1,
-                0.0,
-                0.0,
-                0.0,
-                0.0
-            )
-            viewer.spawnParticle(
-                particle,
-                origin.x + cos(angle) * radius,
-                origin.y + sin(angle) * radius,
-                origin.z,
-                1,
-                0.0,
-                0.0,
-                0.0,
-                0.0
-            )
+            val point1 = origin.clone().add(cos(angle) * radius, 0.0, sin(angle) * radius)
+            spawnDisplay(point1, viewer)
+            val point2 = origin.clone().add(0.0, cos(angle) * radius, sin(angle) * radius)
+            spawnDisplay(point2, viewer)
+            val point3 = origin.clone().add(cos(angle) * radius, sin(angle) * radius, 0.0)
+            spawnDisplay(point3, viewer)
         }
     }
 
@@ -277,9 +252,17 @@ class VisionActivity(
         val step = end.clone().subtract(start).toVector().multiply(1.0 / steps)
         val point = start.clone()
         for (i in 0..steps) {
-            viewer.spawnParticle(particle, point, 1, 0.0, 0.0, 0.0, 0.0)
+            spawnDisplay(point, viewer)
             point.add(step)
         }
+    }
+
+    private fun spawnDisplay(point: org.bukkit.Location, viewer: Player) {
+        val plugin = Bukkit.getPluginManager().getPlugin("Typewriter") ?: return
+        val display = viewer.world.spawn(point, ItemDisplay::class.java) { disp ->
+            disp.setItemStack(ItemStack(material))
+        }
+        Bukkit.getScheduler().runTaskLater(plugin, Runnable { display.remove() }, 1L)
     }
 
     override fun dispose(context: ActivityContext) {}
