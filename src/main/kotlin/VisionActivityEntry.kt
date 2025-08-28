@@ -270,14 +270,50 @@ class VisionActivity(
     }
 
     private fun drawLine(start: org.bukkit.Location, end: org.bukkit.Location, viewer: Player) {
-        val distance = start.distance(end)
-        val steps = (distance * 4).toInt().coerceAtLeast(1)
-        val step = end.clone().subtract(start).toVector().multiply(1.0 / steps)
-        val point = start.clone()
-        for (i in 0..steps) {
-            spawnDisplay(point, viewer)
-            point.add(step)
+        val plugin = Bukkit.getPluginManager().getPlugin("Typewriter") ?: return
+        val list = viewerDisplays.computeIfAbsent(viewer.uniqueId) { mutableListOf() }
+        val index = viewerDisplayIndex.getOrDefault(viewer.uniqueId, 0)
+
+        val dir = end.clone().subtract(start).toVector()
+        val length = dir.length()
+        val mid = start.clone().add(dir.clone().multiply(0.5))
+        val dirNorm = dir.clone().normalize()
+        val yaw = Math.toDegrees(atan2(-dirNorm.x, dirNorm.z)).toFloat()
+        val pitch = Math.toDegrees(-asin(dirNorm.y)).toFloat()
+
+        if (index < list.size) {
+            val display = list[index]
+            val loc = mid.clone()
+            Bukkit.getScheduler().runTask(plugin, Runnable {
+                display.teleport(loc)
+                display.setRotation(yaw, pitch)
+                val t = display.transformation
+                display.transformation = Transformation(
+                    t.translation,
+                    t.leftRotation,
+                    Vector3f(0.02f, 0.02f, length.toFloat()),
+                    t.rightRotation
+                )
+            })
+        } else {
+            val loc = mid.clone()
+            Bukkit.getScheduler().runTask(plugin, Runnable {
+                val display = viewer.world.spawn(loc, ItemDisplay::class.java) { disp ->
+                    disp.setItemStack(ItemStack(material))
+                    disp.setRotation(yaw, pitch)
+                    val t = disp.transformation
+                    disp.transformation = Transformation(
+                        t.translation,
+                        t.leftRotation,
+                        Vector3f(0.02f, 0.02f, length.toFloat()),
+                        t.rightRotation
+                    )
+                }
+                list.add(display)
+            })
         }
+
+        viewerDisplayIndex[viewer.uniqueId] = index + 1
     }
 
     private fun spawnDisplay(point: org.bukkit.Location, viewer: Player) {
