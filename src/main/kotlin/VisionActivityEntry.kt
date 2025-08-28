@@ -294,6 +294,7 @@ class VisionActivity(
                     Vector3f(0.02f, 0.02f, length.toFloat()),
                     t.rightRotation
                 )
+                viewer.showEntity(plugin, display)
             })
         } else {
             val loc = mid.clone()
@@ -308,7 +309,9 @@ class VisionActivity(
                         Vector3f(0.02f, 0.02f, length.toFloat()),
                         t.rightRotation
                     )
+                    disp.isVisibleByDefault = false
                 }
+                viewer.showEntity(plugin, display)
                 list.add(display)
             })
         }
@@ -324,7 +327,10 @@ class VisionActivity(
         if (index < list.size) {
             val display = list[index]
             val loc = point.clone()
-            Bukkit.getScheduler().runTask(plugin, Runnable { display.teleport(loc) })
+            Bukkit.getScheduler().runTask(plugin, Runnable {
+                display.teleport(loc)
+                viewer.showEntity(plugin, display)
+            })
         } else {
             val loc = point.clone()
             Bukkit.getScheduler().runTask(plugin, Runnable {
@@ -332,7 +338,9 @@ class VisionActivity(
                     disp.setItemStack(ItemStack(material))
                     val t = disp.transformation
                     disp.transformation = Transformation(t.translation, t.leftRotation, Vector3f(0.02f, 0.02f, 0.02f), t.rightRotation)
+                    disp.isVisibleByDefault = false
                 }
+                viewer.showEntity(plugin, display)
                 list.add(display)
             })
         }
