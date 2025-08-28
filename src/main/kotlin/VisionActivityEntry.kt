@@ -13,6 +13,8 @@ import org.bukkit.entity.ItemDisplay
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import org.bukkit.util.Vector
+import org.bukkit.util.Transformation
+import org.joml.Vector3f
 import de.chaos.PlayerSeenEvent
 import java.util.UUID
 import kotlin.math.PI
@@ -73,6 +75,8 @@ class VisionActivity(
 
     override var currentPosition: PositionProperty = start
     private val seenPlayers = mutableSetOf<UUID>()
+    private val viewerDisplays = mutableMapOf<UUID, MutableList<ItemDisplay>>()
+    private val viewerDisplayIndex = mutableMapOf<UUID, Int>()
 
     override fun initialize(context: ActivityContext) {}
 
@@ -97,9 +101,11 @@ class VisionActivity(
             val forward = fromYawPitch(yaw, pitch)
 
             val origin = org.bukkit.Location(player.world, eyeX, eyeY, eyeZ)
+            prepareDisplays(player)
             if (showDisplays) {
                 spawnShapeDisplays(origin, yaw, pitch, player)
             }
+            cleanupDisplays(player)
 
             val dir = player.eyeLocation.toVector().subtract(Vector(eyeX, eyeY, eyeZ))
             val distance = dir.length()
@@ -150,6 +156,23 @@ class VisionActivity(
         }
 
         return TickResult.IGNORED
+    }
+
+    private fun prepareDisplays(viewer: Player) {
+        viewerDisplayIndex[viewer.uniqueId] = 0
+    }
+
+    private fun cleanupDisplays(viewer: Player) {
+        val plugin = Bukkit.getPluginManager().getPlugin("Typewriter") ?: return
+        val used = viewerDisplayIndex[viewer.uniqueId] ?: 0
+        val list = viewerDisplays[viewer.uniqueId] ?: return
+        if (used < list.size) {
+            Bukkit.getScheduler().runTask(plugin, Runnable {
+                val toRemove = list.subList(used, list.size)
+                toRemove.forEach { it.remove() }
+                toRemove.clear()
+            })
+        }
     }
 
     private fun spawnShapeDisplays(
@@ -259,15 +282,36 @@ class VisionActivity(
 
     private fun spawnDisplay(point: org.bukkit.Location, viewer: Player) {
         val plugin = Bukkit.getPluginManager().getPlugin("Typewriter") ?: return
-        Bukkit.getScheduler().runTask(plugin, Runnable {
-            val display = viewer.world.spawn(point, ItemDisplay::class.java) { disp ->
-                disp.setItemStack(ItemStack(material))
-            }
-            Bukkit.getScheduler().runTaskLater(plugin, Runnable { display.remove() }, 1L)
-        })
+        val list = viewerDisplays.computeIfAbsent(viewer.uniqueId) { mutableListOf() }
+        val index = viewerDisplayIndex.getOrDefault(viewer.uniqueId, 0)
+
+        if (index < list.size) {
+            val display = list[index]
+            val loc = point.clone()
+            Bukkit.getScheduler().runTask(plugin, Runnable { display.teleport(loc) })
+        } else {
+            val loc = point.clone()
+            Bukkit.getScheduler().runTask(plugin, Runnable {
+                val display = viewer.world.spawn(loc, ItemDisplay::class.java) { disp ->
+                    disp.setItemStack(ItemStack(material))
+                    val t = disp.transformation
+                    disp.transformation = Transformation(t.translation, t.leftRotation, Vector3f(0.02f, 0.02f, 0.02f), t.rightRotation)
+                }
+                list.add(display)
+            })
+        }
+
+        viewerDisplayIndex[viewer.uniqueId] = index + 1
     }
 
-    override fun dispose(context: ActivityContext) {}
+    override fun dispose(context: ActivityContext) {
+        val plugin = Bukkit.getPluginManager().getPlugin("Typewriter") ?: return
+        Bukkit.getScheduler().runTask(plugin, Runnable {
+            viewerDisplays.values.flatten().forEach { it.remove() }
+            viewerDisplays.clear()
+            viewerDisplayIndex.clear()
+        })
+    }
 
     private fun fromYawPitch(yaw: Float, pitch: Float): Vector {
         val yawRad = Math.toRadians(yaw.toDouble())
