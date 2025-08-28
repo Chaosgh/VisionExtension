@@ -259,10 +259,12 @@ class VisionActivity(
 
     private fun spawnDisplay(point: org.bukkit.Location, viewer: Player) {
         val plugin = Bukkit.getPluginManager().getPlugin("Typewriter") ?: return
-        val display = viewer.world.spawn(point, ItemDisplay::class.java) { disp ->
-            disp.setItemStack(ItemStack(material))
-        }
-        Bukkit.getScheduler().runTaskLater(plugin, Runnable { display.remove() }, 1L)
+        Bukkit.getScheduler().runTask(plugin, Runnable {
+            val display = viewer.world.spawn(point, ItemDisplay::class.java) { disp ->
+                disp.setItemStack(ItemStack(material))
+            }
+            Bukkit.getScheduler().runTaskLater(plugin, Runnable { display.remove() }, 1L)
+        })
     }
 
     override fun dispose(context: ActivityContext) {}
