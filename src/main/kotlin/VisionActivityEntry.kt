@@ -44,6 +44,8 @@ class VisionActivityEntry(
     val showDisplays: Boolean = true,
     @Help("Material used when visualizing vision")
     val material: Material = Material.BARRIER,
+    @Help("Size of the item displays")
+    val displaySize: Float = 0.02f,
     @Help("Rotate NPC to face players inside the vision area")
     val lookAtPlayer: Boolean = true,
 ) : GenericEntityActivityEntry {
@@ -51,7 +53,7 @@ class VisionActivityEntry(
         context: ActivityContext,
         currentLocation: PositionProperty
     ): EntityActivity<in ActivityContext> {
-        return VisionActivity(radius, fov, shape, showDisplays, material, lookAtPlayer, currentLocation)
+        return VisionActivity(radius, fov, shape, showDisplays, material, displaySize, lookAtPlayer, currentLocation)
     }
 }
 
@@ -67,6 +69,7 @@ class VisionActivity(
     private val shape: VisionShape,
     private val showDisplays: Boolean,
     private val material: Material,
+    private val displaySize: Float,
     private val lookAtPlayer: Boolean,
     start: PositionProperty,
 ) : EntityActivity<ActivityContext> {
@@ -291,7 +294,7 @@ class VisionActivity(
                 display.transformation = Transformation(
                     t.translation,
                     t.leftRotation,
-                    Vector3f(0.02f, 0.02f, length.toFloat()),
+                    Vector3f(displaySize, displaySize, length.toFloat()),
                     t.rightRotation
                 )
                 viewer.showEntity(plugin, display)
@@ -306,7 +309,7 @@ class VisionActivity(
                     disp.transformation = Transformation(
                         t.translation,
                         t.leftRotation,
-                        Vector3f(0.02f, 0.02f, length.toFloat()),
+                        Vector3f(displaySize, displaySize, length.toFloat()),
                         t.rightRotation
                     )
                     disp.isVisibleByDefault = false
@@ -337,7 +340,7 @@ class VisionActivity(
                 val display = viewer.world.spawn(loc, ItemDisplay::class.java) { disp ->
                     disp.setItemStack(ItemStack(material))
                     val t = disp.transformation
-                    disp.transformation = Transformation(t.translation, t.leftRotation, Vector3f(0.02f, 0.02f, 0.02f), t.rightRotation)
+                    disp.transformation = Transformation(t.translation, t.leftRotation, Vector3f(displaySize, displaySize, displaySize), t.rightRotation)
                     disp.isVisibleByDefault = false
                 }
                 viewer.showEntity(plugin, display)
