@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "de.chaos"
-version = "0.1.0"
+version = "0.2.0"
 
 
 repositories {
@@ -42,6 +42,7 @@ kotlin {
 }
 
 tasks.jar {
+    destinationDirectory.set(file("C:/Users/julie/Desktop/dev/plugins/Typewriter/extensions"))
     archiveFileName.set("VisionExtension-${version}.jar")
 }
 tasks.register<Copy>("copyJarToServer") {
