@@ -31,6 +31,8 @@ typewriter {
         channel = com.typewritermc.moduleplugin.ReleaseChannel.BETA
 
         dependencies {
+            dependency("typewritermc", "Entity")
+            dependency("typewritermc", "RoadNetwork")
         }
 
         paper()
