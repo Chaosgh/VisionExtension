@@ -77,7 +77,12 @@ class RandomPatrolVisionActivity(
     }
 
     override fun tick(context: ActivityContext): TickResult {
-        vision.currentPosition = patrol.currentPosition
+        val patrolPos = patrol.currentPosition
+        vision.currentPosition = if (vision.isSeeingPlayer) {
+            patrolPos.withRotation(vision.currentPosition.yaw, vision.currentPosition.pitch)
+        } else {
+            patrolPos
+        }
         val visionResult = vision.tick(context)
         val patrolResult = if (stopWhenLooking && vision.isSeeingPlayer) {
             patrol.stop(context)
