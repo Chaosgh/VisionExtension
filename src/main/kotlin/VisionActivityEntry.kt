@@ -80,11 +80,18 @@ class VisionActivity(
     private val seenPlayers = mutableSetOf<UUID>()
     private val viewerDisplays = mutableMapOf<UUID, MutableList<ItemDisplay>>()
     private val viewerDisplayIndex = mutableMapOf<UUID, Int>()
+    var isSeeingPlayer: Boolean = false
+        private set
 
     override fun initialize(context: ActivityContext) {}
 
     override fun tick(context: ActivityContext): TickResult {
-        if (!context.isViewed) return TickResult.IGNORED
+        if (!context.isViewed) {
+            isSeeingPlayer = false
+            return TickResult.IGNORED
+        }
+
+        var sawPlayer = false
 
         context.viewers.filter { it.isLookable }.forEach { player ->
             val base =
@@ -141,6 +148,8 @@ class VisionActivity(
                 return@forEach
             }
 
+            sawPlayer = true
+
             if (seenPlayers.add(player.uniqueId)) {
                 val plugin = Bukkit.getPluginManager().getPlugin("Typewriter")
                 if (plugin != null) {
@@ -157,6 +166,8 @@ class VisionActivity(
                 currentPosition = currentPosition.withRotation(lookYaw, lookPitch)
             }
         }
+
+        isSeeingPlayer = sawPlayer
 
         return TickResult.IGNORED
     }
@@ -289,6 +300,8 @@ class VisionActivity(
             val loc = mid.clone()
             Bukkit.getScheduler().runTask(plugin, Runnable {
                 display.teleport(loc)
+                display.teleportDuration = 1
+                display.interpolationDuration = 1
                 display.setRotation(yaw, pitch)
                 val t = display.transformation
                 display.transformation = Transformation(
@@ -305,6 +318,8 @@ class VisionActivity(
                 val display = viewer.world.spawn(loc, ItemDisplay::class.java) { disp ->
                     disp.setItemStack(ItemStack(material))
                     disp.setRotation(yaw, pitch)
+                    disp.teleportDuration = 1
+                    disp.interpolationDuration = 1
                     val t = disp.transformation
                     disp.transformation = Transformation(
                         t.translation,
@@ -332,6 +347,8 @@ class VisionActivity(
             val loc = point.clone()
             Bukkit.getScheduler().runTask(plugin, Runnable {
                 display.teleport(loc)
+                display.teleportDuration = 1
+                display.interpolationDuration = 1
                 viewer.showEntity(plugin, display)
             })
         } else {
@@ -340,6 +357,8 @@ class VisionActivity(
                 val display = viewer.world.spawn(loc, ItemDisplay::class.java) { disp ->
                     disp.setItemStack(ItemStack(material))
                     val t = disp.transformation
+                    disp.teleportDuration = 1
+                    disp.interpolationDuration = 1
                     disp.transformation = Transformation(t.translation, t.leftRotation, Vector3f(displaySize, displaySize, displaySize), t.rightRotation)
                     disp.isVisibleByDefault = false
                 }
