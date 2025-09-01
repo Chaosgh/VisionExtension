@@ -80,6 +80,7 @@ class RandomPatrolVisionActivity(
         vision.currentPosition = patrol.currentPosition
         val visionResult = vision.tick(context)
         val patrolResult = if (stopWhenLooking && vision.isSeeingPlayer) {
+            patrol.stop(context)
             TickResult.IGNORED
         } else {
             patrol.tick(context)
@@ -146,6 +147,14 @@ class RandomPatrolActivity(
         }
 
         return TickResult.CONSUMED
+    }
+
+    fun stop(context: ActivityContext) {
+        if (activity !is IdleActivity) {
+            val oldPosition = currentPosition
+            activity.dispose(context)
+            activity = IdleActivity(oldPosition)
+        }
     }
 
     override fun dispose(context: ActivityContext) {
