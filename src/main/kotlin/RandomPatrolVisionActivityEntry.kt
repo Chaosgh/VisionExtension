@@ -46,6 +46,8 @@ class RandomPatrolVisionActivityEntry(
     val displaySize: Float = 0.02f,
     @Help("Rotate NPC to face players inside the vision area")
     val lookAtPlayer: Boolean = true,
+    @Help("Pause patrolling while a player is visible")
+    val stopWhenLooking: Boolean = true,
 ) : GenericEntityActivityEntry {
     override fun create(
         context: ActivityContext,
@@ -53,13 +55,14 @@ class RandomPatrolVisionActivityEntry(
     ): EntityActivity<ActivityContext> {
         val patrol = RandomPatrolActivity(roadNetwork, patrolRadius * patrolRadius, currentLocation)
         val vision = VisionActivity(visionRadius, fov, shape, showDisplays, material, displaySize, lookAtPlayer, currentLocation)
-        return RandomPatrolVisionActivity(patrol, vision)
+        return RandomPatrolVisionActivity(patrol, vision, stopWhenLooking)
     }
 }
 
 class RandomPatrolVisionActivity(
     private val patrol: RandomPatrolActivity,
     private val vision: VisionActivity,
+    private val stopWhenLooking: Boolean,
 ) : EntityActivity<ActivityContext> {
     override var currentPosition: PositionProperty
         get() = patrol.currentPosition
@@ -74,9 +77,13 @@ class RandomPatrolVisionActivity(
     }
 
     override fun tick(context: ActivityContext): TickResult {
-        val patrolResult = patrol.tick(context)
         vision.currentPosition = patrol.currentPosition
         val visionResult = vision.tick(context)
+        val patrolResult = if (stopWhenLooking && vision.isSeeingPlayer) {
+            TickResult.IGNORED
+        } else {
+            patrol.tick(context)
+        }
         return if (patrolResult == TickResult.CONSUMED || visionResult == TickResult.CONSUMED) {
             TickResult.CONSUMED
         } else {
