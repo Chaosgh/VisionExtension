@@ -10,9 +10,13 @@ version = "0.2.0"
 repositories {
     mavenCentral()
     gradlePluginPortal()
-    maven("https://maven.typewritermc.com/releases")
+    maven("https://maven.typewritermc.com/beta")
 
 
+}
+dependencies {
+    implementation("com.typewritermc:RoadNetworkExtension:0.9.0")
+    implementation("com.typewritermc:EntityExtension:0.9.0")
 }
 
 

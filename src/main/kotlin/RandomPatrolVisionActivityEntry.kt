@@ -10,6 +10,7 @@ import com.typewritermc.core.utils.point.distanceSqrt
 import com.typewritermc.engine.paper.entry.entity.*
 import com.typewritermc.engine.paper.entry.entries.EntityProperty
 import com.typewritermc.engine.paper.entry.entries.GenericEntityActivityEntry
+import com.typewritermc.entity.entries.activity.NavigationActivity
 import com.typewritermc.roadnetwork.RoadNetwork
 import com.typewritermc.roadnetwork.RoadNetworkEntry
 import com.typewritermc.roadnetwork.RoadNetworkManager
