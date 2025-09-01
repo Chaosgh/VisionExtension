@@ -66,10 +66,7 @@ class RandomPatrolVisionActivity(
 ) : EntityActivity<ActivityContext> {
     override var currentPosition: PositionProperty
         get() = patrol.currentPosition
-        set(value) {
-            patrol.currentPosition = value
-            vision.currentPosition = value
-        }
+        set(_) {}
 
     override val currentProperties: List<EntityProperty>
         get() = patrol.currentProperties + vision.currentProperties
@@ -87,8 +84,6 @@ class RandomPatrolVisionActivity(
         } else {
             patrol.tick(context)
         }
-        patrol.currentPosition =
-            patrol.currentPosition.withRotation(vision.currentPosition.yaw, vision.currentPosition.pitch)
         return if (patrolResult == TickResult.CONSUMED || visionResult == TickResult.CONSUMED) {
             TickResult.CONSUMED
         } else {
@@ -159,11 +154,8 @@ class RandomPatrolActivity(
         activity = IdleActivity(oldPosition)
     }
 
-    override var currentPosition: PositionProperty
+    override val currentPosition: PositionProperty
         get() = activity.currentPosition
-        set(value) {
-            activity.currentPosition = value
-        }
 
     override val currentProperties: List<EntityProperty>
         get() = activity.currentProperties
