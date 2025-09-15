@@ -147,6 +147,7 @@ class VisionActivity(
     private val knownViewers: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
     private val detectionProgress = mutableMapOf<UUID, Double>()
     private val indicatorDisplays = mutableMapOf<UUID, TextDisplay>()
+    private val pendingIndicators = mutableSetOf<UUID>()
     var isSeeingPlayer: Boolean = false
         private set
 
@@ -375,6 +376,7 @@ class VisionActivity(
             addAll(knownViewers)
             addAll(viewerDisplays.keys)
             addAll(indicatorDisplays.keys)
+            addAll(pendingIndicators)
         }
         val toRemove = tracked.filter { it !in currentViewerIds }
         if (toRemove.isEmpty()) return
@@ -383,6 +385,7 @@ class VisionActivity(
                 viewerDisplays.remove(uuid)?.forEach { it.remove() }
                 viewerDisplayIndex.remove(uuid)
                 indicatorDisplays.remove(uuid)?.remove()
+                pendingIndicators.remove(uuid)
                 detectionProgress.remove(uuid)
                 knownViewers.remove(uuid)
             }
@@ -573,7 +576,8 @@ class VisionActivity(
     private fun updateIndicator(context: ActivityContext, viewer: Player, x: Double, yEye: Double, z: Double, progress: Double) {
         val plugin = Bukkit.getPluginManager().getPlugin("Typewriter") ?: return
         val base = org.bukkit.Location(viewer.world, x, yEye + indicatorOffsetY, z)
-        val existing = indicatorDisplays[viewer.uniqueId]
+        val uuid = viewer.uniqueId
+        val existing = indicatorDisplays[uuid]
 
         val clamped = progress.coerceIn(0.0, 1.0)
         // Build a nicer bar: colored blocks and percent
@@ -597,7 +601,10 @@ class VisionActivity(
         val text = Component.text("$symbol ", NamedTextColor.YELLOW).append(bar)
 
         if (existing == null) {
+            if (uuid in pendingIndicators) return
+            pendingIndicators.add(uuid)
             Bukkit.getScheduler().runTask(plugin, Runnable {
+                if (!pendingIndicators.remove(uuid)) return@Runnable
                 val indicator = viewer.world.spawn(base, TextDisplay::class.java) { td ->
                     td.text(text)
                     td.billboard = Display.Billboard.CENTER
@@ -607,7 +614,7 @@ class VisionActivity(
                     td.isSeeThrough = false
                 }
                 viewer.showEntity(plugin, indicator)
-                indicatorDisplays[viewer.uniqueId] = indicator
+                indicatorDisplays[uuid] = indicator
             })
         } else {
             Bukkit.getScheduler().runTask(plugin, Runnable {
@@ -620,7 +627,9 @@ class VisionActivity(
 
     private fun removeIndicator(viewer: Player) {
         val plugin = Bukkit.getPluginManager().getPlugin("Typewriter") ?: return
-        val disp = indicatorDisplays.remove(viewer.uniqueId) ?: return
+        val uuid = viewer.uniqueId
+        pendingIndicators.remove(uuid)
+        val disp = indicatorDisplays.remove(uuid) ?: return
         Bukkit.getScheduler().runTask(plugin, Runnable {
             disp.vehicle?.removePassenger(disp)
             disp.remove()
@@ -638,6 +647,7 @@ class VisionActivity(
                 disp.remove()
             }
             indicatorDisplays.clear()
+            pendingIndicators.clear()
             detectionProgress.clear()
         })
     }
