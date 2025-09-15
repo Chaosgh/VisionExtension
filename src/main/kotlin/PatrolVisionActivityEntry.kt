@@ -6,7 +6,6 @@ import com.typewritermc.core.entries.emptyRef
 import com.typewritermc.core.extension.annotations.Default
 import com.typewritermc.core.extension.annotations.Entry
 import com.typewritermc.core.extension.annotations.Help
-import com.typewritermc.core.utils.point.distanceSqrt
 import com.typewritermc.engine.paper.entry.entity.*
 import com.typewritermc.engine.paper.entry.entries.EntityProperty
 import com.typewritermc.engine.paper.entry.entries.GenericEntityActivityEntry
@@ -14,6 +13,8 @@ import com.typewritermc.entity.entries.activity.NavigationActivity
 import com.typewritermc.roadnetwork.RoadNetwork
 import com.typewritermc.roadnetwork.RoadNetworkEntry
 import com.typewritermc.roadnetwork.RoadNetworkManager
+import com.typewritermc.roadnetwork.RoadNode
+import com.typewritermc.roadnetwork.RoadNodeId
 import com.typewritermc.roadnetwork.gps.PointToPointGPS
 import org.bukkit.Material
 import org.koin.core.component.KoinComponent
@@ -29,9 +30,8 @@ class PatrolVisionActivityEntry(
     override val id: String = "",
     override val name: String = "",
     val roadNetwork: Ref<RoadNetworkEntry> = emptyRef(),
-    @Help("The maximum distance (in blocks) from the entity's current position to consider nodes for patrol.")
-    @Default("100.0")
-    val patrolRadius: Double = 100.0,
+    @Help("IDs of road nodes to patrol in sequence")
+    val nodeIds: List<Int> = emptyList(),
     @Help("Maximum distance in blocks the NPC can see")
     val visionRadius: Double = 5.0,
     @Help("Field of view in degrees (max 170)")
@@ -80,7 +80,7 @@ class PatrolVisionActivityEntry(
         context: ActivityContext,
         currentLocation: PositionProperty
     ): EntityActivity<ActivityContext> {
-        val patrol = PatrolActivity(roadNetwork, patrolRadius * patrolRadius, currentLocation)
+        val patrol = PatrolActivity(roadNetwork, nodeIds, currentLocation)
         val vision = VisionActivity(
             radius = visionRadius,
             fovDegrees = fov,
@@ -166,17 +166,24 @@ class PatrolVisionActivity(
 
 class PatrolActivity(
     private val roadNetwork: Ref<RoadNetworkEntry>,
-    private val radiusSquared: Double,
+    private val nodeIds: List<Int>,
     startLocation: PositionProperty,
 ) : EntityActivity<ActivityContext>, KoinComponent {
     private var network: RoadNetwork? = null
     private var activity: EntityActivity<in ActivityContext> = IdleActivity(startLocation)
     private var nodeIndex = 0
+    private var nodes: List<RoadNode> = emptyList()
+
+    private fun resolveNodes(network: RoadNetwork) {
+        nodes = nodeIds.mapNotNull { id ->
+            network.nodes.find { it.id == RoadNodeId(id) }
+        }
+    }
 
     fun refreshActivity(context: ActivityContext, network: RoadNetwork): TickResult {
-        val currentPos = currentPosition.toPosition()
-        val nodes = network.nodes
-            .filter { (it.position.distanceSqrt(currentPos) ?: Double.MAX_VALUE) <= radiusSquared }
+        if (nodes.isEmpty()) {
+            resolveNodes(network)
+        }
         if (nodes.isEmpty()) return TickResult.IGNORED
 
         val nextNode = nodes[nodeIndex % nodes.size]
