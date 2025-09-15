@@ -48,13 +48,59 @@ class RandomPatrolVisionActivityEntry(
     val lookAtPlayer: Boolean = true,
     @Help("Pause patrolling while a player is visible")
     val stopWhenLooking: Boolean = true,
+    @Help("Require progressive detection while the player is sneaking")
+    @Default("true")
+    val sneakProgressEnabled: Boolean = true,
+    @Help("Apply progressive detection while walking (non-sneak)")
+    @Default("false")
+    val walkProgressEnabled: Boolean = false,
+    @Help("Minimum seconds to detect a walking player at point-blank")
+    @Default("0.3")
+    val walkMinDetectSeconds: Double = 0.3,
+    @Help("Maximum seconds to detect a walking player at max radius distance")
+    @Default("1.5")
+    val walkMaxDetectSeconds: Double = 1.5,
+    @Help("Minimum seconds to detect a sneaking player at point-blank")
+    @Default("0.6")
+    val sneakMinDetectSeconds: Double = 0.6,
+    @Help("Maximum seconds to detect a sneaking player at max radius distance")
+    @Default("2.5")
+    val sneakMaxDetectSeconds: Double = 2.5,
+    @Help("Progress decay per second when not visible")
+    @Default("1.2")
+    val visionDecayPerSecond: Double = 1.2,
+    @Help("Show a detection indicator above the NPC (two text displays)")
+    @Default("true")
+    val showDetectionIndicator: Boolean = true,
+    @Help("Vertical offset for the detection indicator above head (blocks)")
+    @Default("0.6")
+    val indicatorOffsetY: Double = 0.6,
+    // Passenger attach omitted in this build to avoid compile coupling
 ) : GenericEntityActivityEntry {
     override fun create(
         context: ActivityContext,
         currentLocation: PositionProperty
     ): EntityActivity<ActivityContext> {
         val patrol = RandomPatrolActivity(roadNetwork, patrolRadius * patrolRadius, currentLocation)
-        val vision = VisionActivity(visionRadius, fov, shape, showDisplays, material, displaySize, lookAtPlayer, currentLocation)
+        val vision = VisionActivity(
+            radius = visionRadius,
+            fovDegrees = fov,
+            shape = shape,
+            showDisplays = showDisplays,
+            material = material,
+            displaySize = displaySize,
+            lookAtPlayer = lookAtPlayer,
+            sneakProgressEnabled = sneakProgressEnabled,
+            walkProgressEnabled = walkProgressEnabled,
+            sneakMinDetectSeconds = sneakMinDetectSeconds,
+            sneakMaxDetectSeconds = sneakMaxDetectSeconds,
+            walkMinDetectSeconds = walkMinDetectSeconds,
+            walkMaxDetectSeconds = walkMaxDetectSeconds,
+            visionDecayPerSecond = visionDecayPerSecond,
+            showDetectionIndicator = showDetectionIndicator,
+            indicatorOffsetY = indicatorOffsetY,
+            start = currentLocation
+        )
         return RandomPatrolVisionActivity(patrol, vision, stopWhenLooking)
     }
 }
@@ -64,12 +110,19 @@ class RandomPatrolVisionActivity(
     private val vision: VisionActivity,
     private val stopWhenLooking: Boolean,
 ) : EntityActivity<ActivityContext> {
+    private var unseenTicks: Int = 0
     override var currentPosition: PositionProperty
         get() = patrol.currentPosition
         set(_) {}
 
     override val currentProperties: List<EntityProperty>
-        get() = patrol.currentProperties + vision.currentProperties
+        get() = if (vision.isSeeingPlayer) {
+            val patrolProps = patrol.currentProperties.filterNot { it is PositionProperty }
+            patrolProps + vision.currentProperties
+        } else {
+            val visionProps = vision.currentProperties.filterNot { it is PositionProperty }
+            patrol.currentProperties + visionProps
+        }
 
     override fun initialize(context: ActivityContext) {
         patrol.initialize(context)
@@ -84,11 +137,20 @@ class RandomPatrolVisionActivity(
             patrolPos
         }
         val visionResult = vision.tick(context)
-        val patrolResult = if (stopWhenLooking && vision.isSeeingPlayer) {
+
+        var patrolResult = TickResult.IGNORED
+        if (stopWhenLooking && vision.isSeeingPlayer) {
             patrol.stop(context)
-            TickResult.IGNORED
+            unseenTicks = 0
         } else {
-            patrol.tick(context)
+            val resumeDelayTicks = 10
+            if (unseenTicks < resumeDelayTicks) {
+                unseenTicks++
+                patrol.stop(context)
+                patrolResult = TickResult.IGNORED
+            } else {
+                patrolResult = patrol.tick(context)
+            }
         }
         return if (patrolResult == TickResult.CONSUMED || visionResult == TickResult.CONSUMED) {
             TickResult.CONSUMED

@@ -6,37 +6,30 @@ plugins {
 group = "de.chaos"
 version = "0.2.0"
 
-
 repositories {
     mavenCentral()
     gradlePluginPortal()
     maven("https://maven.typewritermc.com/beta")
-
-
 }
+
 dependencies {
-    implementation("com.typewritermc:RoadNetworkExtension:0.9.0")
-    implementation("com.typewritermc:EntityExtension:0.9.0")
+    // Required for Entity-related APIs used by this extension
+    compileOnly("com.typewritermc:EntityExtension:0.9.0")
+    // Required for RoadNetwork types referenced by RandomPatrolVisionActivityEntry
+    compileOnly("com.typewritermc:RoadNetworkExtension:0.9.0")
 }
-
-
-
-
 
 typewriter {
     namespace = "chaos"
 
     extension {
         name = "Vision"
-        shortDescription = "Raycast TypeWriter Addon"
-        description =
-            "adds a vision raycast for npcs so that they detect if you enter their field of view, you are also able to trigger that"
+        shortDescription = "Raycast & Vision system for NPCs"
+        description = "Provides an advanced vision system for NPCs. Supports raycasts, line-of-sight checks, and OnPlayerSeen criteria to simulate realistic perception and player detection within Typewriter."
         engineVersion = "0.9.0-beta-165"
         channel = com.typewritermc.moduleplugin.ReleaseChannel.BETA
 
-        dependencies {
-            dependency("typewritermc", "RoadNetwork")
-        }
+        dependencies { }
 
         paper()
     }
@@ -50,6 +43,7 @@ tasks.jar {
     destinationDirectory.set(file("C:/Users/julie/Desktop/dev/plugins/Typewriter/extensions"))
     archiveFileName.set("VisionExtension-${version}.jar")
 }
+
 tasks.register<Copy>("copyJarToServer") {
     dependsOn("jar")
     val jar = tasks.named<Jar>("jar").get()
@@ -58,8 +52,7 @@ tasks.register<Copy>("copyJarToServer") {
     into("C:/Users/julie/Desktop/dev/plugins/Typewriter/extensions")
 
     doFirst {
-        println("→ Kopiere ${jar.archiveFileName.get()} von ${jar.destinationDirectory.get().asFile}")
+        println("Copying ${jar.archiveFileName.get()} from ${jar.destinationDirectory.get().asFile}")
     }
-
 }
 

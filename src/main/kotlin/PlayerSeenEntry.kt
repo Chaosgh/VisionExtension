@@ -11,9 +11,7 @@ import com.typewritermc.engine.paper.entry.entries.EventEntry
 import com.typewritermc.engine.paper.entry.triggerEntriesFor
 import org.bukkit.entity.Player
 import org.bukkit.event.Event
-import org.bukkit.event.EventHandler
 import org.bukkit.event.HandlerList
-import org.bukkit.event.Listener
 
 @Entry(
     "on_player_seen",
@@ -40,16 +38,5 @@ class PlayerSeenEvent(
 
         @JvmStatic
         fun getHandlerList(): HandlerList = handlerList
-    }
-}
-
-object PlayerSeenListener : Listener {
-    @EventHandler
-    fun onPlayerSeen(event: PlayerSeenEvent) {
-        Query(PlayerSeenEntry::class)
-            .findWhere { it.entity == event.instance }
-            .forEach { entry ->
-                entry.triggers.triggerEntriesFor(event.player) { }
-            }
     }
 }
