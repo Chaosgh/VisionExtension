@@ -1,4 +1,4 @@
-﻿package de.chaos
+package de.chaos
 
 import com.typewritermc.core.books.pages.Colors
 import com.typewritermc.core.entries.Query
@@ -10,6 +10,7 @@ import com.typewritermc.engine.paper.entry.entity.*
 import com.typewritermc.engine.paper.entry.entries.GenericEntityActivityEntry
 import com.typewritermc.engine.paper.entry.entries.EntityInstanceEntry
 import com.typewritermc.engine.paper.entry.triggerEntriesFor
+import com.typewritermc.engine.paper.plugin
 import com.typewritermc.engine.paper.utils.isLookable
 import org.bukkit.Bukkit
 import org.bukkit.Material
@@ -85,29 +86,38 @@ class VisionActivityEntry(
     @Help("Vertical offset for the detection indicator above head (blocks)")
     @Default("0.6")
     val indicatorOffsetY: Double = 0.6,
+    @Help("Always face a specific yaw/pitch while this activity runs")
+    val forcedLookEnabled: Boolean = false,
+    @Help("Forced yaw (degrees, 0-360)")
+    val forcedLookYaw: Float = 0f,
+    @Help("Forced pitch (degrees, -90 to 90)")
+    val forcedLookPitch: Float = 0f,
 ) : GenericEntityActivityEntry {
     override fun create(
         context: ActivityContext,
         currentLocation: PositionProperty
     ): EntityActivity<in ActivityContext> {
         return VisionActivity(
-            radius,
-            fov,
-            shape,
-            showDisplays,
-            material,
-            displaySize,
-            lookAtPlayer,
-            sneakProgressEnabled,
-            walkProgressEnabled,
-            sneakMinDetectSeconds,
-            sneakMaxDetectSeconds,
-            walkMinDetectSeconds,
-            walkMaxDetectSeconds,
-            visionDecayPerSecond,
-            showDetectionIndicator,
-            indicatorOffsetY,
-            currentLocation
+            radius = radius,
+            fovDegrees = fov,
+            shape = shape,
+            showDisplays = showDisplays,
+            material = material,
+            displaySize = displaySize,
+            lookAtPlayer = lookAtPlayer,
+            sneakProgressEnabled = sneakProgressEnabled,
+            walkProgressEnabled = walkProgressEnabled,
+            sneakMinDetectSeconds = sneakMinDetectSeconds,
+            sneakMaxDetectSeconds = sneakMaxDetectSeconds,
+            walkMinDetectSeconds = walkMinDetectSeconds,
+            walkMaxDetectSeconds = walkMaxDetectSeconds,
+            visionDecayPerSecond = visionDecayPerSecond,
+            showDetectionIndicator = showDetectionIndicator,
+            indicatorOffsetY = indicatorOffsetY,
+            forcedLookEnabled = forcedLookEnabled,
+            forcedYaw = forcedLookYaw,
+            forcedPitch = forcedLookPitch,
+            start = currentLocation
         )
     }
 }
@@ -135,10 +145,16 @@ class VisionActivity(
     private val visionDecayPerSecond: Double,
     private val showDetectionIndicator: Boolean,
     private val indicatorOffsetY: Double,
+    private val forcedLookEnabled: Boolean,
+    private val forcedYaw: Float,
+    private val forcedPitch: Float,
     start: PositionProperty,
 ) : EntityActivity<ActivityContext> {
 
     private val fov = fovDegrees.coerceIn(1.0, 170.0)
+    private val forcedYawTarget = normalizeYaw(forcedYaw)
+    private val forcedPitchTarget = forcedPitch.coerceIn(-89.9f, 89.9f)
+    private val hasForcedLook = forcedLookEnabled
 
     override var currentPosition: PositionProperty = start
     private val seenPlayers = mutableSetOf<UUID>()
@@ -146,15 +162,20 @@ class VisionActivity(
     private val viewerDisplayIndex = mutableMapOf<UUID, Int>()
     private val knownViewers: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
     private val detectionProgress = mutableMapOf<UUID, Double>()
-    private val indicatorDisplays = mutableMapOf<UUID, TextDisplay>()
-    private val pendingIndicators = mutableSetOf<UUID>()
+    private val indicatorDisplays: MutableMap<UUID, TextDisplay> = ConcurrentHashMap()
+    private val pendingIndicators: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
     var isSeeingPlayer: Boolean = false
         private set
 
-    override fun initialize(context: ActivityContext) {}
+    override fun initialize(context: ActivityContext) {
+        applyForcedRotation()
+    }
 
     override fun tick(context: ActivityContext): TickResult {
         if (!context.isViewed) {
+            if (hasForcedLook) {
+                applyForcedRotation()
+            }
             isSeeingPlayer = false
             return TickResult.IGNORED
         }
@@ -289,7 +310,7 @@ class VisionActivity(
                             .forEach { entry ->
                                 entry.triggers.triggerEntriesFor(player) { }
                             }
-                        val plugin = Bukkit.getPluginManager().getPlugin("Typewriter")
+                        val plugin = plugin
                         if (plugin != null) {
                             Bukkit.getScheduler().runTask(plugin, Runnable {
                                 Bukkit.getPluginManager().callEvent(PlayerSeenEvent(context.instanceRef, player))
@@ -316,7 +337,7 @@ class VisionActivity(
                             .forEach { entry ->
                                 entry.triggers.triggerEntriesFor(player) { }
                             }
-                        val plugin = Bukkit.getPluginManager().getPlugin("Typewriter")
+                        val plugin = plugin
                         if (plugin != null) {
                             Bukkit.getScheduler().runTask(plugin, Runnable {
                                 Bukkit.getPluginManager().callEvent(PlayerSeenEvent(context.instanceRef, player))
@@ -343,6 +364,10 @@ class VisionActivity(
             cleanupDisplays(player)
         }
 
+        if (hasForcedLook && (!lookAtPlayer || lookViewer == null || !detectedAny)) {
+            applyForcedRotation()
+        }
+
         // Only mark as 'seeing' when detection has reached '!'
         isSeeingPlayer = detectedAny
 
@@ -357,7 +382,7 @@ class VisionActivity(
     }
 
     private fun cleanupDisplays(viewer: Player) {
-        val plugin = Bukkit.getPluginManager().getPlugin("Typewriter") ?: return
+        val plugin = plugin
         val used = viewerDisplayIndex[viewer.uniqueId] ?: 0
         val list = viewerDisplays[viewer.uniqueId] ?: return
         if (used < list.size) {
@@ -370,7 +395,7 @@ class VisionActivity(
     }
 
     private fun cleanupMissingViewers(currentViewerIds: Set<UUID>) {
-        val plugin = Bukkit.getPluginManager().getPlugin("Typewriter") ?: return
+        val plugin = plugin
         // Determine all viewers we previously tracked (for displays or indicators) that are no longer present
         val tracked = HashSet<UUID>().apply {
             addAll(knownViewers)
@@ -541,7 +566,7 @@ class VisionActivity(
     }
 
     private fun spawnDisplay(point: org.bukkit.Location, viewer: Player) {
-        val plugin = Bukkit.getPluginManager().getPlugin("Typewriter") ?: return
+        val plugin = plugin
         val list = viewerDisplays.computeIfAbsent(viewer.uniqueId) { mutableListOf() }
         val index = viewerDisplayIndex.getOrDefault(viewer.uniqueId, 0)
 
@@ -574,10 +599,13 @@ class VisionActivity(
     }
 
     private fun updateIndicator(context: ActivityContext, viewer: Player, x: Double, yEye: Double, z: Double, progress: Double) {
-        val plugin = Bukkit.getPluginManager().getPlugin("Typewriter") ?: return
+        val plugin = plugin
         val base = org.bukkit.Location(viewer.world, x, yEye + indicatorOffsetY, z)
         val uuid = viewer.uniqueId
-        val existing = indicatorDisplays[uuid]
+        val existing = indicatorDisplays[uuid]?.takeIf { it.isValid } ?: run {
+            indicatorDisplays.remove(uuid)
+            null
+        }
 
         val clamped = progress.coerceIn(0.0, 1.0)
         // Build a nicer bar: colored blocks and percent
@@ -586,13 +614,13 @@ class VisionActivity(
         val percent = (clamped * 100).toInt().coerceIn(0, 100)
         val symbol = if (clamped >= 1.0) "!" else "?"
 
-        val filledPart = Component.text("█".repeat(filled), when {
+        val filledPart = Component.text("\u2588".repeat(filled), when {
             clamped >= 1.0 -> NamedTextColor.RED
             clamped >= 0.66 -> NamedTextColor.GOLD
             clamped >= 0.33 -> NamedTextColor.YELLOW
             else -> NamedTextColor.GREEN
         })
-        val emptyPart = Component.text("░".repeat(width - filled), NamedTextColor.DARK_GRAY)
+        val emptyPart = Component.text("\u2591".repeat(width - filled), NamedTextColor.DARK_GRAY)
         val bar = Component.text(" [", NamedTextColor.GRAY)
             .append(filledPart)
             .append(emptyPart)
@@ -601,8 +629,7 @@ class VisionActivity(
         val text = Component.text("$symbol ", NamedTextColor.YELLOW).append(bar)
 
         if (existing == null) {
-            if (uuid in pendingIndicators) return
-            pendingIndicators.add(uuid)
+            if (!pendingIndicators.add(uuid)) return
             Bukkit.getScheduler().runTask(plugin, Runnable {
                 if (!pendingIndicators.remove(uuid)) return@Runnable
                 val indicator = viewer.world.spawn(base, TextDisplay::class.java) { td ->
@@ -612,21 +639,33 @@ class VisionActivity(
                     td.interpolationDuration = 1
                     td.isShadowed = true
                     td.isSeeThrough = false
+                    td.isVisibleByDefault = false
+                }
+                indicatorDisplays[uuid] = indicator
+                plugin.server.onlinePlayers.forEach { other ->
+                    if (other != viewer) {
+                        other.hideEntity(plugin, indicator)
+                    }
                 }
                 viewer.showEntity(plugin, indicator)
-                indicatorDisplays[uuid] = indicator
             })
         } else {
             Bukkit.getScheduler().runTask(plugin, Runnable {
                 existing.teleport(base.clone())
                 existing.text(text)
+                existing.isVisibleByDefault = false
+                plugin.server.onlinePlayers.forEach { other ->
+                    if (other != viewer) {
+                        other.hideEntity(plugin, existing)
+                    }
+                }
                 viewer.showEntity(plugin, existing)
             })
         }
     }
 
     private fun removeIndicator(viewer: Player) {
-        val plugin = Bukkit.getPluginManager().getPlugin("Typewriter") ?: return
+        val plugin = plugin
         val uuid = viewer.uniqueId
         pendingIndicators.remove(uuid)
         val disp = indicatorDisplays.remove(uuid) ?: return
@@ -637,7 +676,7 @@ class VisionActivity(
     }
 
     override fun dispose(context: ActivityContext) {
-        val plugin = Bukkit.getPluginManager().getPlugin("Typewriter") ?: return
+        val plugin = plugin
         Bukkit.getScheduler().runTask(plugin, Runnable {
             viewerDisplays.values.flatten().forEach { it.remove() }
             viewerDisplays.clear()
@@ -650,6 +689,21 @@ class VisionActivity(
             pendingIndicators.clear()
             detectionProgress.clear()
         })
+    }
+
+    private fun applyForcedRotation() {
+        if (!hasForcedLook) return
+        val targetYaw = forcedYawTarget
+        val targetPitch = forcedPitchTarget
+        if (currentPosition.yaw != targetYaw || currentPosition.pitch != targetPitch) {
+            currentPosition = currentPosition.withRotation(targetYaw, targetPitch)
+        }
+    }
+
+    private fun normalizeYaw(yaw: Float): Float {
+        var value = yaw % 360f
+        if (value < 0f) value += 360f
+        return value
     }
 
     private fun fromYawPitch(yaw: Float, pitch: Float): Vector {
@@ -696,6 +750,15 @@ class VisionActivity(
         return newYaw to newPitch
     }
 }
+
+
+
+
+
+
+
+
+
 
 
 

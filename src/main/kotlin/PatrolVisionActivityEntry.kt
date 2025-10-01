@@ -98,6 +98,9 @@ class PatrolVisionActivityEntry(
             visionDecayPerSecond = visionDecayPerSecond,
             showDetectionIndicator = showDetectionIndicator,
             indicatorOffsetY = indicatorOffsetY,
+            forcedLookEnabled = false,
+            forcedYaw = 0f,
+            forcedPitch = 0f,
             start = currentLocation
         )
         return PatrolVisionActivity(patrol, vision, stopWhenLooking)
@@ -245,4 +248,7 @@ class PatrolActivity(
     override val currentProperties: List<EntityProperty>
         get() = activity.currentProperties
 }
+
+
+
 

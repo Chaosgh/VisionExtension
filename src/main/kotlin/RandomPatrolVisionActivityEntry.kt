@@ -75,7 +75,7 @@ class RandomPatrolVisionActivityEntry(
     @Help("Vertical offset for the detection indicator above head (blocks)")
     @Default("0.6")
     val indicatorOffsetY: Double = 0.6,
-    // Passenger attach omitted in this build to avoid compile coupling
+
 ) : GenericEntityActivityEntry {
     override fun create(
         context: ActivityContext,
@@ -99,6 +99,9 @@ class RandomPatrolVisionActivityEntry(
             visionDecayPerSecond = visionDecayPerSecond,
             showDetectionIndicator = showDetectionIndicator,
             indicatorOffsetY = indicatorOffsetY,
+            forcedLookEnabled = false,
+            forcedYaw = 0f,
+            forcedPitch = 0f,
             start = currentLocation
         )
         return RandomPatrolVisionActivity(patrol, vision, stopWhenLooking)
@@ -236,4 +239,6 @@ class RandomPatrolActivity(
     override val currentProperties: List<EntityProperty>
         get() = activity.currentProperties
 }
+
+
 

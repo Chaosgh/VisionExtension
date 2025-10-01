@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "de.chaos"
-version = "0.2.0"
+version = "0.3.0"
 
 repositories {
     mavenCentral()
@@ -13,9 +13,7 @@ repositories {
 }
 
 dependencies {
-    // Required for Entity-related APIs used by this extension
     compileOnly("com.typewritermc:EntityExtension:0.9.0")
-    // Required for RoadNetwork types referenced by RandomPatrolVisionActivityEntry
     compileOnly("com.typewritermc:RoadNetworkExtension:0.9.0")
 }
 
@@ -26,7 +24,7 @@ typewriter {
         name = "Vision"
         shortDescription = "Raycast & Vision system for NPCs"
         description = "Provides an advanced vision system for NPCs. Supports raycasts, line-of-sight checks, and OnPlayerSeen criteria to simulate realistic perception and player detection within Typewriter."
-        engineVersion = "0.9.0-beta-165"
+        engineVersion = "0.9.0-beta-166"
         channel = com.typewritermc.moduleplugin.ReleaseChannel.BETA
 
         dependencies { }
