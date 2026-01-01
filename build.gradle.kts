@@ -1,6 +1,6 @@
 plugins {
     kotlin("jvm") version "2.2.10"
-    id("com.typewritermc.module-plugin") version "2.0.0"
+    id("com.typewritermc.module-plugin") version "2.1.0"
 }
 
 group = "de.chaos"
@@ -24,7 +24,7 @@ typewriter {
         name = "Vision"
         shortDescription = "Raycast & Vision system for NPCs"
         description = "Provides an advanced vision system for NPCs. Supports raycasts, line-of-sight checks, and OnPlayerSeen criteria to simulate realistic perception and player detection within Typewriter."
-        engineVersion = "0.9.0-beta-166"
+        engineVersion = "0.9.0-beta-169"
         channel = com.typewritermc.moduleplugin.ReleaseChannel.BETA
 
         dependencies { }
