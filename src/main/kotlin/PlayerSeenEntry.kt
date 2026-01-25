@@ -33,3 +33,26 @@ class PlayerSeenEvent(val instance: Ref<out EntityInstanceEntry>, val player: Pl
         @JvmStatic fun getHandlerList(): HandlerList = handlerList
     }
 }
+
+@Entry(
+        "on_player_lost",
+        "Trigger entries when a player leaves an entity's vision",
+        Colors.RED,
+        "mdi:eye-off"
+)
+class PlayerLostEntry(
+        override val id: String = "",
+        override val name: String = "",
+        val entity: Ref<out EntityInstanceEntry> = emptyRef(),
+        override val triggers: List<Ref<TriggerableEntry>> = emptyList()
+) : EventEntry
+
+class PlayerLostEvent(val instance: Ref<out EntityInstanceEntry>, val player: Player) : Event() {
+    override fun getHandlers(): HandlerList = handlerList
+
+    companion object {
+        @JvmStatic private val handlerList = HandlerList()
+
+        @JvmStatic fun getHandlerList(): HandlerList = handlerList
+    }
+}

@@ -1,123 +1,102 @@
 package de.chaos
 
-import com.typewritermc.core.entries.Ref
 import com.typewritermc.engine.paper.entry.entity.*
 import com.typewritermc.engine.paper.entry.entries.EntityProperty
-import com.typewritermc.entity.entries.activity.NavigationActivity
-import com.typewritermc.roadnetwork.RoadNetwork
-import com.typewritermc.roadnetwork.RoadNetworkEntry
-import com.typewritermc.roadnetwork.RoadNetworkManager
-import com.typewritermc.roadnetwork.gps.PointToPointGPS
-import org.koin.java.KoinJavaComponent
 
 /**
- * Abstract base class for patrol activities that use a road network. Provides common functionality
- * for navigation, stopping, and lifecycle management.
+ * Wrapper that adds pause/stop functionality to any EntityActivity.
+ * Used to pause patrol activities when the NPC is looking at a player.
  */
-abstract class BasePatrolActivity(
-        protected val roadNetwork: Ref<RoadNetworkEntry>,
-        startLocation: PositionProperty,
-) : EntityActivity<ActivityContext> {
-    protected var network: RoadNetwork? = null
-    protected var activity: EntityActivity<in ActivityContext> = IdleActivity(startLocation)
+class PausableActivity<C : ActivityContext>(
+    private val delegate: EntityActivity<C>
+) : EntityActivity<C> {
+    private var paused = false
+    private var idleActivity: IdleActivity? = null
+    private var needsReinit = false
 
     override val currentPosition: PositionProperty
-        get() = activity.currentPosition
+        get() = if (paused) idleActivity?.currentPosition ?: delegate.currentPosition else delegate.currentPosition
 
     override val currentProperties: List<EntityProperty>
-        get() = activity.currentProperties
+        get() = if (paused) idleActivity?.currentProperties ?: delegate.currentProperties else delegate.currentProperties
 
-    /**
-     * Template method to refresh the navigation activity. Subclasses must implement this to define
-     * how the next destination is chosen.
-     */
-    abstract fun refreshActivity(context: ActivityContext, network: RoadNetwork): TickResult
-
-    override fun initialize(context: ActivityContext) = setup(context)
-
-    protected fun setup(context: ActivityContext) {
-        network =
-                KoinJavaComponent.get<RoadNetworkManager>(RoadNetworkManager::class.java)
-                        .getNetworkOrNull(roadNetwork)
-                        ?: return
-
-        network?.let { refreshActivity(context, it) }
+    override fun initialize(context: C) {
+        delegate.initialize(context)
     }
 
-    override fun tick(context: ActivityContext): TickResult {
-        val net = network
-        if (net == null) {
-            setup(context)
-            return TickResult.CONSUMED
-        }
-
-        val result = activity.tick(context)
-        return if (result == TickResult.IGNORED) {
-            refreshActivity(context, net)
+    override fun tick(context: C): TickResult {
+        return if (paused) {
+            // When paused, tick the idle activity instead
+            idleActivity?.tick(context) ?: TickResult.IGNORED
         } else {
-            TickResult.CONSUMED
+            // Reinitialize if we were previously paused and disposed
+            if (needsReinit) {
+                delegate.initialize(context)
+                needsReinit = false
+            }
+            val result = delegate.tick(context)
+            result
         }
     }
 
-    fun stop(context: ActivityContext) {
-        if (activity !is IdleActivity) {
-            val oldPosition = currentPosition
-            activity.dispose(context)
-            activity = IdleActivity(oldPosition)
+    fun pause(context: C) {
+        if (!paused) {
+            // Create idle activity at current position and dispose delegate
+            val pos = delegate.currentPosition
+            delegate.dispose(context)
+            idleActivity = IdleActivity(pos)
+            idleActivity?.initialize(context)
+            needsReinit = true
         }
+        paused = true
     }
 
-    override fun dispose(context: ActivityContext) {
-        val oldPosition = currentPosition
-        activity.dispose(context)
-        activity = IdleActivity(oldPosition)
+    fun resume() {
+        paused = false
+        idleActivity = null
     }
 
-    /** Helper to create a NavigationActivity to the given destination. */
-    protected fun navigateTo(
-            context: ActivityContext,
-            destination: com.typewritermc.core.utils.point.Position
-    ): TickResult {
-        activity.dispose(context)
-        activity =
-                NavigationActivity(
-                        PointToPointGPS(roadNetwork, { currentPosition.toPosition() }) {
-                            destination
-                        },
-                        currentPosition
-                )
-        activity.initialize(context)
-        return TickResult.CONSUMED
+    val isPaused: Boolean get() = paused
+
+    override fun dispose(context: C) {
+        delegate.dispose(context)
+        idleActivity = null
     }
 }
 
 /**
- * Abstract base class for combined patrol + vision activities. Handles the coordination between
- * patrolling and vision detection.
+ * Combined patrol + vision activity. Handles the coordination between
+ * patrolling and vision detection. Works with any EntityActivity as patrol.
  */
-abstract class BasePatrolVisionActivity<P : BasePatrolActivity>(
-        protected val patrol: P,
-        protected val vision: VisionActivity,
-        protected val stopWhenLooking: Boolean,
-        protected val resumeDelayTicks: Int = 10,
+class PatrolVisionActivity(
+    private val patrol: PausableActivity<ActivityContext>,
+    private val vision: VisionActivity,
+    private val stopWhenLooking: Boolean,
+    private val resumeDelayTicks: Int = 10,
 ) : EntityActivity<ActivityContext> {
-    private var unseenTicks: Int = 0
+    private var ticksSinceLastSeen: Int = Int.MAX_VALUE  // Start high so patrol runs immediately
+    private var hasEverSeenPlayer: Boolean = false
 
     override var currentPosition: PositionProperty
-        get() = patrol.currentPosition
-        set(_) {
-            /* Position is managed by patrol activity */
+        get() = if (vision.isSeeingPlayer) {
+            patrol.currentPosition.withRotation(vision.currentPosition.yaw, vision.currentPosition.pitch)
+        } else {
+            patrol.currentPosition
         }
+        set(_) { /* Position is managed by patrol activity */ }
 
     override val currentProperties: List<EntityProperty>
-        get() =
-                if (vision.isSeeingPlayer) {
-                    val patrolProps = patrol.currentProperties.filterNot { it is PositionProperty }
-                    patrolProps + vision.currentProperties
-                } else {
-                    val visionProps = vision.currentProperties.filterNot { it is PositionProperty }
-                    patrol.currentProperties + visionProps
-                }
+        get() {
+            return if (vision.isSeeingPlayer) {
+                // When seeing player: use combined position (patrol location + vision rotation)
+                val visionProps = vision.currentProperties.filterNot { it is PositionProperty }
+                listOf(currentPosition) + visionProps
+            } else {
+                // Normal: use patrol properties + vision non-position properties
+                val visionProps = vision.currentProperties.filterNot { it is PositionProperty }
+                patrol.currentProperties + visionProps
+            }
+        }
 
     override fun initialize(context: ActivityContext) {
         patrol.initialize(context)
@@ -126,28 +105,32 @@ abstract class BasePatrolVisionActivity<P : BasePatrolActivity>(
 
     override fun tick(context: ActivityContext): TickResult {
         val patrolPos = patrol.currentPosition
-        vision.currentPosition =
-                if (vision.isSeeingPlayer) {
-                    patrolPos.withRotation(vision.currentPosition.yaw, vision.currentPosition.pitch)
-                } else {
-                    patrolPos
-                }
+        vision.currentPosition = if (vision.isSeeingPlayer) {
+            patrolPos.withRotation(vision.currentPosition.yaw, vision.currentPosition.pitch)
+        } else {
+            patrolPos
+        }
         val visionResult = vision.tick(context)
 
-        val patrolResult =
-                if (stopWhenLooking && vision.isSeeingPlayer) {
-                    patrol.stop(context)
-                    unseenTicks = 0
-                    TickResult.IGNORED
-                } else {
-                    if (unseenTicks < resumeDelayTicks) {
-                        unseenTicks++
-                        patrol.stop(context)
-                        TickResult.IGNORED
-                    } else {
-                        patrol.tick(context)
-                    }
-                }
+        val patrolResult = when {
+            stopWhenLooking && vision.isSeeingPlayer -> {
+                // Momentan Spieler gesehen - Patrol pausieren
+                patrol.pause(context)
+                ticksSinceLastSeen = 0
+                hasEverSeenPlayer = true
+                TickResult.CONSUMED
+            }
+            hasEverSeenPlayer && ticksSinceLastSeen < resumeDelayTicks -> {
+                // Spieler kürzlich verloren - warte kurz bevor Patrol weiterläuft
+                ticksSinceLastSeen++
+                TickResult.CONSUMED
+            }
+            else -> {
+                // Nichts gesehen oder Delay vorbei - Patrol fortsetzen
+                patrol.resume()
+                patrol.tick(context)
+            }
+        }
 
         return if (patrolResult == TickResult.CONSUMED || visionResult == TickResult.CONSUMED) {
             TickResult.CONSUMED

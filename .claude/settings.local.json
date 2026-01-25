@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(./gradlew build:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(./gradlew clean build:*)",
+      "Bash(./gradlew copyJarToServer:*)"
+    ]
+  }
+}

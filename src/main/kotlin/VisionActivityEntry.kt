@@ -13,7 +13,6 @@ import com.typewritermc.engine.paper.entry.triggerEntriesFor
 import com.typewritermc.engine.paper.plugin
 import com.typewritermc.engine.paper.utils.isLookable
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.acos
@@ -35,72 +34,51 @@ import org.bukkit.util.Vector
 class VisionActivityEntry(
         override val id: String = "",
         override val name: String = "",
-        @Help("Maximum distance in blocks the NPC can see") val radius: Double = 5.0,
-        @Help("Field of view in degrees (max 170)") val fov: Double = 90.0,
-        @Help("Shape of the vision area") val shape: VisionShape = VisionShape.CONE,
+        @Help("Maximum distance in blocks the NPC can see") override val visionRadius: Double = 5.0,
+        @Help("Field of view in degrees (max 170)") override val fov: Double = 90.0,
+        @Help("Shape of the vision area") override val shape: VisionShape = VisionShape.CONE,
         @Help("Display item displays to visualize the vision area")
-        val showDisplays: Boolean = true,
-        @Help("Material used when visualizing vision") val material: Material = Material.BARRIER,
-        @Help("Size of the item displays") val displaySize: Float = 0.02f,
-        @Help("Rotate NPC to face players inside the vision area") val lookAtPlayer: Boolean = true,
+        override val showDisplays: Boolean = true,
+        @Help("Material used when visualizing vision") override val material: Material = Material.BARRIER,
+        @Help("Size of the item displays") override val displaySize: Float = 0.02f,
+        @Help("Rotate NPC to face players inside the vision area") override val lookAtPlayer: Boolean = true,
         @Help("Require progressive detection while the player is sneaking")
         @Default("true")
-        val sneakProgressEnabled: Boolean = true,
+        override val sneakProgressEnabled: Boolean = true,
         @Help("Apply progressive detection while walking (non-sneak)")
         @Default("false")
-        val walkProgressEnabled: Boolean = false,
+        override val walkProgressEnabled: Boolean = false,
         @Help("Minimum seconds to detect a walking player at point-blank")
         @Default("0.3")
-        val walkMinDetectSeconds: Double = 0.3,
+        override val walkMinDetectSeconds: Double = 0.3,
         @Help("Maximum seconds to detect a walking player at max radius distance")
         @Default("1.5")
-        val walkMaxDetectSeconds: Double = 1.5,
+        override val walkMaxDetectSeconds: Double = 1.5,
         @Help("Minimum seconds to detect a sneaking player at point-blank")
         @Default("0.6")
-        val sneakMinDetectSeconds: Double = 0.6,
+        override val sneakMinDetectSeconds: Double = 0.6,
         @Help("Maximum seconds to detect a sneaking player at max radius distance")
         @Default("2.5")
-        val sneakMaxDetectSeconds: Double = 2.5,
+        override val sneakMaxDetectSeconds: Double = 2.5,
         @Help("Progress decay per second when not visible")
         @Default("1.2")
-        val visionDecayPerSecond: Double = 1.2,
+        override val visionDecayPerSecond: Double = 1.2,
         @Help("Show a detection indicator above the NPC (two text displays)")
         @Default("true")
-        val showDetectionIndicator: Boolean = true,
+        override val showDetectionIndicator: Boolean = true,
         @Help("Vertical offset for the detection indicator above head (blocks)")
         @Default("0.6")
-        val indicatorOffsetY: Double = 0.6,
+        override val indicatorOffsetY: Double = 0.6,
         @Help("Always face a specific yaw/pitch while this activity runs")
-        val forcedLookEnabled: Boolean = false,
-        @Help("Forced yaw (degrees, 0-360)") val forcedLookYaw: Float = 0f,
-        @Help("Forced pitch (degrees, -90 to 90)") val forcedLookPitch: Float = 0f,
-) : GenericEntityActivityEntry {
+        override val forcedLookEnabled: Boolean = false,
+        @Help("Forced yaw (degrees, 0-360)") override val forcedLookYaw: Float = 0f,
+        @Help("Forced pitch (degrees, -90 to 90)") override val forcedLookPitch: Float = 0f,
+) : GenericEntityActivityEntry, VisionConfigProvider {
         override fun create(
                 context: ActivityContext,
                 currentLocation: PositionProperty
         ): EntityActivity<in ActivityContext> {
-                return VisionActivity(
-                        radius = radius,
-                        fovDegrees = fov,
-                        shape = shape,
-                        showDisplays = showDisplays,
-                        material = material,
-                        displaySize = displaySize,
-                        lookAtPlayer = lookAtPlayer,
-                        sneakProgressEnabled = sneakProgressEnabled,
-                        walkProgressEnabled = walkProgressEnabled,
-                        sneakMinDetectSeconds = sneakMinDetectSeconds,
-                        sneakMaxDetectSeconds = sneakMaxDetectSeconds,
-                        walkMinDetectSeconds = walkMinDetectSeconds,
-                        walkMaxDetectSeconds = walkMaxDetectSeconds,
-                        visionDecayPerSecond = visionDecayPerSecond,
-                        showDetectionIndicator = showDetectionIndicator,
-                        indicatorOffsetY = indicatorOffsetY,
-                        forcedLookEnabled = forcedLookEnabled,
-                        forcedYaw = forcedLookYaw,
-                        forcedPitch = forcedLookPitch,
-                        start = currentLocation
-                )
+                return VisionActivity(toVisionConfig(), currentLocation)
         }
 }
 
@@ -111,51 +89,80 @@ enum class VisionShape {
 }
 
 /**
+ * Configuration data class for VisionActivity to reduce constructor parameters.
+ */
+data class VisionConfig(
+        val radius: Double = 5.0,
+        val fovDegrees: Double = 90.0,
+        val shape: VisionShape = VisionShape.CONE,
+        val showDisplays: Boolean = true,
+        val material: Material = Material.BARRIER,
+        val displaySize: Float = 0.02f,
+        val lookAtPlayer: Boolean = true,
+        val sneakProgressEnabled: Boolean = true,
+        val walkProgressEnabled: Boolean = false,
+        val sneakMinDetectSeconds: Double = 0.6,
+        val sneakMaxDetectSeconds: Double = 2.5,
+        val walkMinDetectSeconds: Double = 0.3,
+        val walkMaxDetectSeconds: Double = 1.5,
+        val visionDecayPerSecond: Double = 1.2,
+        val showDetectionIndicator: Boolean = true,
+        val indicatorOffsetY: Double = 0.6,
+        val forcedLookEnabled: Boolean = false,
+        val forcedYaw: Float = 0f,
+        val forcedPitch: Float = 0f,
+)
+
+/**
  * Vision activity that detects players in the NPC's field of view. Uses ClientSideDisplayManager
  * for packet-based client-side displays.
  */
 class VisionActivity(
-        private val radius: Double,
-        fovDegrees: Double,
-        private val shape: VisionShape,
-        private val showDisplays: Boolean,
-        private val material: Material,
-        private val displaySize: Float,
-        private val lookAtPlayer: Boolean,
-        private val sneakProgressEnabled: Boolean,
-        private val walkProgressEnabled: Boolean,
-        private val sneakMinDetectSeconds: Double,
-        private val sneakMaxDetectSeconds: Double,
-        private val walkMinDetectSeconds: Double,
-        private val walkMaxDetectSeconds: Double,
-        private val visionDecayPerSecond: Double,
-        private val showDetectionIndicator: Boolean,
-        private val indicatorOffsetY: Double,
-        private val forcedLookEnabled: Boolean,
-        private val forcedYaw: Float,
-        private val forcedPitch: Float,
+        private val config: VisionConfig,
         start: PositionProperty,
 ) : EntityActivity<ActivityContext> {
 
-        // Pre-computed values for performance
-        private val fov = fovDegrees.coerceIn(1.0, 170.0)
-        private val halfFov = fov / 2.0
-        private val forcedYawTarget = normalizeYaw(forcedYaw)
-        private val forcedPitchTarget = forcedPitch.coerceIn(-89.9f, 89.9f)
-        private val hasForcedLook = forcedLookEnabled
-        private val decayPerTick = visionDecayPerSecond / 20.0
-
         override var currentPosition: PositionProperty = start
 
-        // State tracking - use ConcurrentHashMap for thread-safety
-        private val seenPlayers: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
-        private val detectionProgress = ConcurrentHashMap<UUID, Double>()
-        private val knownViewers = ConcurrentHashMap.newKeySet<UUID>()
+        override val currentProperties: List<com.typewritermc.engine.paper.entry.entries.EntityProperty>
+                get() = listOf(currentPosition)
+
+        // Pre-computed values for performance
+        private val radius = config.radius
+        private val fov = config.fovDegrees.coerceIn(1.0, 170.0)
+        private val halfFov = fov / 2.0
+        private val shape = config.shape
+        private val showDisplays = config.showDisplays
+        private val lookAtPlayer = config.lookAtPlayer
+        private val sneakProgressEnabled = config.sneakProgressEnabled
+        private val walkProgressEnabled = config.walkProgressEnabled
+        private val sneakMinDetectSeconds = max(0.05, config.sneakMinDetectSeconds)
+        private val sneakMaxDetectSeconds = max(sneakMinDetectSeconds, config.sneakMaxDetectSeconds)
+        private val walkMinDetectSeconds = max(0.05, config.walkMinDetectSeconds)
+        private val walkMaxDetectSeconds = max(walkMinDetectSeconds, config.walkMaxDetectSeconds)
+        private val showDetectionIndicator = config.showDetectionIndicator
+        private val indicatorOffsetY = config.indicatorOffsetY
+        private val forcedYawTarget = normalizeYaw(config.forcedYaw)
+        private val forcedPitchTarget = config.forcedPitch.coerceIn(-89.9f, 89.9f)
+        private val hasForcedLook = config.forcedLookEnabled
+        private val decayPerTick = config.visionDecayPerSecond / 20.0
+
+        // State tracking - main thread only, use HashMap for performance
+        private val seenPlayers = HashSet<UUID>()
+        private val detectionProgress = HashMap<UUID, Double>()
+        private val knownViewers = HashSet<UUID>()
+
+        // Cached progress bar state to avoid recreating components
+        private val cachedProgressBars = HashMap<UUID, Pair<Double, Component>>()
 
         // Client-side display manager for packet-based displays
         private val displayManager: ClientSideDisplayManager by lazy {
-                ClientSideDisplayManager(material, displaySize)
+                ClientSideDisplayManager(config.material, config.displaySize)
         }
+
+        // Reusable vectors to reduce allocations in tick loop
+        private val tempDir = Vector()
+        private val tempDirNorm = Vector()
 
         var isSeeingPlayer: Boolean = false
                 private set
@@ -176,7 +183,7 @@ class VisionActivity(
                 var detectedAny = false
 
                 val viewers = context.viewers.filter { it.isLookable }
-                val currentViewerIds = viewers.map { it.uniqueId }.toSet()
+                val currentViewerIds = viewers.mapTo(HashSet(viewers.size)) { it.uniqueId }
                 knownViewers.addAll(currentViewerIds)
 
                 // Fixed NPC position for this tick (avoid per-viewer base jitter)
@@ -185,41 +192,59 @@ class VisionActivity(
                 val posZ = currentPosition.z
                 val eyeY = posY + context.entityState.eyeHeight
 
-                // Pre-compute forward vector once
-                val forward = fromYawPitch(currentPosition.yaw, currentPosition.pitch)
-                val forwardNorm = forward.clone().normalize()
+                // Pre-compute forward vector once (fromYawPitch returns normalized)
+                val forwardNorm = fromYawPitch(currentPosition.yaw, currentPosition.pitch)
 
-                // Choose a single viewer to drive rotation (nearest)
-                val lookViewer =
-                        viewers.minByOrNull { v ->
-                                val d = v.eyeLocation.toVector().subtract(Vector(posX, eyeY, posZ))
-                                d.lengthSquared()
+                // Choose a single viewer to drive rotation (nearest) using squared distance
+                var lookViewer: Player? = null
+                var minDistSq = Double.MAX_VALUE
+                for (v in viewers) {
+                        val eye = v.eyeLocation
+                        val dx = eye.x - posX
+                        val dy = eye.y - eyeY
+                        val dz = eye.z - posZ
+                        val distSq = dx * dx + dy * dy + dz * dz
+                        if (distSq < minDistSq) {
+                                minDistSq = distSq
+                                lookViewer = v
                         }
+                }
 
-                viewers.forEach { player ->
+                for (player in viewers) {
                         // Prepare display frame for this viewer
                         if (showDisplays) {
                                 displayManager.prepareFrame(player)
                         }
 
                         val origin = Location(player.world, posX, eyeY, posZ)
-                        val dir = player.eyeLocation.toVector().subtract(Vector(posX, eyeY, posZ))
-                        val distance = dir.length()
+                        val playerEye = player.eyeLocation
+
+                        // Reuse tempDir vector to avoid allocation
+                        tempDir.setX(playerEye.x - posX)
+                        tempDir.setY(playerEye.y - eyeY)
+                        tempDir.setZ(playerEye.z - posZ)
+                        val distance = tempDir.length()
+
+                        // Pre-normalize direction for reuse
+                        if (distance > 0.0001) {
+                                val invDist = 1.0 / distance
+                                tempDirNorm.setX(tempDir.x * invDist)
+                                tempDirNorm.setY(tempDir.y * invDist)
+                                tempDirNorm.setZ(tempDir.z * invDist)
+                        } else {
+                                tempDirNorm.setX(0.0)
+                                tempDirNorm.setY(0.0)
+                                tempDirNorm.setZ(1.0)
+                        }
 
                         // Check if player is inside vision area
-                        val inside = checkInsideVision(forwardNorm, dir, distance)
+                        val inside = checkInsideVision(forwardNorm, tempDir, tempDirNorm, distance)
 
-                        // Check for line-of-sight blocking
-                        val blocked =
-                                origin.world?.rayTraceBlocks(
-                                        origin,
-                                        dir.clone().normalize(),
-                                        distance
-                                ) != null
-                        val visible = inside && !blocked
+                        // Check for line-of-sight blocking (only if inside vision)
+                        val visible = inside && origin.world?.rayTraceBlocks(origin, tempDirNorm, distance) == null
 
                         if (!visible) {
-                                handleNotVisible(player, posX, eyeY, posZ)
+                                handleNotVisible(player, context, posX, eyeY, posZ)
                         } else {
                                 detectedAny =
                                         handleVisible(
@@ -228,7 +253,7 @@ class VisionActivity(
                                                 posX,
                                                 eyeY,
                                                 posZ,
-                                                dir,
+                                                tempDirNorm,
                                                 distance,
                                                 forwardNorm,
                                                 lookViewer
@@ -253,40 +278,40 @@ class VisionActivity(
                 // Cleanup displays for viewers that are no longer present
                 displayManager.cleanupMissingViewers(currentViewerIds)
 
-                // Clean up detection progress for missing viewers
+                // Clean up detection progress and cached bars for missing viewers
                 detectionProgress.keys.removeAll { it !in currentViewerIds }
+                cachedProgressBars.keys.removeAll { it !in currentViewerIds }
 
                 return TickResult.IGNORED
         }
 
-        private fun checkInsideVision(forwardNorm: Vector, dir: Vector, distance: Double): Boolean {
+        private fun checkInsideVision(forwardNorm: Vector, dir: Vector, dirNorm: Vector, distance: Double): Boolean {
                 return when (shape) {
                         VisionShape.CONE -> {
-                                val dot =
-                                        forwardNorm.dot(dir.clone().normalize()).coerceIn(-1.0, 1.0)
+                                if (distance > radius) return false
+                                val dot = forwardNorm.dot(dirNorm).coerceIn(-1.0, 1.0)
                                 val angle = Math.toDegrees(acos(dot))
-                                distance <= radius && angle <= halfFov
+                                angle <= halfFov
                         }
                         VisionShape.LINE -> {
                                 val projection = forwardNorm.dot(dir)
-                                if (projection !in 0.0..radius) false
-                                else {
-                                        val lateral =
-                                                dir.clone()
-                                                        .subtract(
-                                                                forwardNorm
-                                                                        .clone()
-                                                                        .multiply(projection)
-                                                        )
-                                        lateral.length() <= halfFov
-                                }
+                                if (projection !in 0.0..radius) return false
+                                // Calculate lateral distance without allocation
+                                val latX = dir.x - forwardNorm.x * projection
+                                val latY = dir.y - forwardNorm.y * projection
+                                val latZ = dir.z - forwardNorm.z * projection
+                                val lateralLen = kotlin.math.sqrt(latX * latX + latY * latY + latZ * latZ)
+                                lateralLen <= halfFov
                         }
                         VisionShape.SPHERE -> distance <= radius
                 }
         }
 
-        private fun handleNotVisible(player: Player, posX: Double, eyeY: Double, posZ: Double) {
-                seenPlayers.remove(player.uniqueId)
+        private fun handleNotVisible(player: Player, context: ActivityContext, posX: Double, eyeY: Double, posZ: Double) {
+                val wasSeenBefore = seenPlayers.remove(player.uniqueId)
+                if (wasSeenBefore) {
+                        triggerPlayerLost(context, player)
+                }
 
                 val useProgress =
                         (player.isSneaking && sneakProgressEnabled) ||
@@ -325,7 +350,7 @@ class VisionActivity(
                 posX: Double,
                 eyeY: Double,
                 posZ: Double,
-                dir: Vector,
+                dirNorm: Vector,
                 distance: Double,
                 forwardNorm: Vector,
                 lookViewer: Player?
@@ -345,28 +370,23 @@ class VisionActivity(
                                 return true
                         }
 
-                        // Progressive detection
+                        // Progressive detection - use pre-computed min/max values
                         val isSneak = player.isSneaking
-                        val tMinBase =
-                                if (isSneak) max(0.05, sneakMinDetectSeconds)
-                                else max(0.05, walkMinDetectSeconds)
-                        val tMaxBase =
-                                if (isSneak) max(tMinBase, sneakMaxDetectSeconds)
-                                else max(tMinBase, walkMaxDetectSeconds)
+                        val tMinBase = if (isSneak) sneakMinDetectSeconds else walkMinDetectSeconds
+                        val tMaxBase = if (isSneak) sneakMaxDetectSeconds else walkMaxDetectSeconds
 
                         // Distance factor: closer => faster (shorter time)
-                        val distFactor = (distance / max(0.0001, radius)).coerceIn(0.0, 1.0)
+                        val distFactor = (distance / radius).coerceIn(0.0, 1.0)
                         var tSec = tMinBase + (tMaxBase - tMinBase) * distFactor
 
                         // Center factor: nearer to center of vision => faster
-                        val centerFactor = calculateCenterFactor(forwardNorm, dir)
+                        val centerFactor = calculateCenterFactor(forwardNorm, dirNorm, distance)
                         val angleMultiplier = (1.0 - 0.5 * centerFactor).coerceIn(0.5, 1.0)
                         tSec *= angleMultiplier
 
                         val inc = 1.0 / (tSec * 20.0)
-                        val now =
-                                (detectionProgress.getOrDefault(player.uniqueId, 0.0) + inc)
-                                        .coerceAtMost(1.0)
+                        val prev = detectionProgress[player.uniqueId] ?: 0.0
+                        val now = (prev + inc).coerceAtMost(1.0)
                         detectionProgress[player.uniqueId] = now
 
                         if (showDetectionIndicator)
@@ -397,8 +417,7 @@ class VisionActivity(
                 }
         }
 
-        private fun calculateCenterFactor(forwardNorm: Vector, dir: Vector): Double {
-                val dirNorm = dir.clone().normalize()
+        private fun calculateCenterFactor(forwardNorm: Vector, dirNorm: Vector, distance: Double): Double {
                 return when (shape) {
                         VisionShape.CONE -> {
                                 val dot = forwardNorm.dot(dirNorm).coerceIn(-1.0, 1.0)
@@ -406,11 +425,13 @@ class VisionActivity(
                                 (1.0 - (ang / halfFov)).coerceIn(0.0, 1.0)
                         }
                         VisionShape.LINE -> {
-                                val projection = forwardNorm.dot(dir)
-                                val lateral =
-                                        dir.clone()
-                                                .subtract(forwardNorm.clone().multiply(projection))
-                                (1.0 - (lateral.length() / halfFov)).coerceIn(0.0, 1.0)
+                                // Use dirNorm * distance to get the original dir vector components
+                                val projection = forwardNorm.dot(dirNorm) * distance
+                                val latX = dirNorm.x * distance - forwardNorm.x * projection
+                                val latY = dirNorm.y * distance - forwardNorm.y * projection
+                                val latZ = dirNorm.z * distance - forwardNorm.z * projection
+                                val lateralLen = kotlin.math.sqrt(latX * latX + latY * latY + latZ * latZ)
+                                (1.0 - (lateralLen / halfFov)).coerceIn(0.0, 1.0)
                         }
                         VisionShape.SPHERE -> 1.0
                 }
@@ -452,6 +473,27 @@ class VisionActivity(
                         )
         }
 
+        private fun triggerPlayerLost(context: ActivityContext, player: Player) {
+                Query(PlayerLostEntry::class)
+                        .findWhere {
+                                it.entity == context.instanceRef ||
+                                        it.entity == emptyRef<EntityInstanceEntry>()
+                        }
+                        .forEach { entry -> entry.triggers.triggerEntriesFor(player) {} }
+
+                val plugin = plugin
+                Bukkit.getScheduler()
+                        .runTask(
+                                plugin,
+                                Runnable {
+                                        Bukkit.getPluginManager()
+                                                .callEvent(
+                                                        PlayerLostEvent(context.instanceRef, player)
+                                                )
+                                }
+                        )
+        }
+
         private fun updateIndicatorDisplay(
                 player: Player,
                 x: Double,
@@ -462,31 +504,41 @@ class VisionActivity(
                 val base = Location(player.world, x, yEye + indicatorOffsetY, z)
                 val clamped = progress.coerceIn(0.0, 1.0)
 
-                // Build progress bar
+                // Check cache - only rebuild component when filled count changes
                 val width = 12
                 val filled = (clamped * width).toInt().coerceIn(0, width)
-                val percent = (clamped * 100).toInt().coerceIn(0, 100)
-                val symbol = if (clamped >= 1.0) "!" else "?"
+                val cacheKey = filled.toDouble() // Use filled count as cache key
 
-                val filledPart =
-                        Component.text(
-                                "\u2588".repeat(filled),
-                                when {
-                                        clamped >= 1.0 -> NamedTextColor.RED
-                                        clamped >= 0.66 -> NamedTextColor.GOLD
-                                        clamped >= 0.33 -> NamedTextColor.YELLOW
-                                        else -> NamedTextColor.GREEN
-                                }
-                        )
-                val emptyPart =
-                        Component.text("\u2591".repeat(width - filled), NamedTextColor.DARK_GRAY)
-                val bar =
-                        Component.text(" [", NamedTextColor.GRAY)
-                                .append(filledPart)
-                                .append(emptyPart)
-                                .append(Component.text("] ", NamedTextColor.GRAY))
-                                .append(Component.text("$percent%", NamedTextColor.GRAY))
-                val text = Component.text("$symbol ", NamedTextColor.YELLOW).append(bar)
+                val cached = cachedProgressBars[player.uniqueId]
+                val text = if (cached != null && cached.first == cacheKey) {
+                        cached.second
+                } else {
+                        // Build progress bar only when filled count changes
+                        val percent = (clamped * 100).toInt().coerceIn(0, 100)
+                        val symbol = if (clamped >= 1.0) "!" else "?"
+
+                        val filledPart =
+                                Component.text(
+                                        "\u2588".repeat(filled),
+                                        when {
+                                                clamped >= 1.0 -> NamedTextColor.RED
+                                                clamped >= 0.66 -> NamedTextColor.GOLD
+                                                clamped >= 0.33 -> NamedTextColor.YELLOW
+                                                else -> NamedTextColor.GREEN
+                                        }
+                                )
+                        val emptyPart =
+                                Component.text("\u2591".repeat(width - filled), NamedTextColor.DARK_GRAY)
+                        val bar =
+                                Component.text(" [", NamedTextColor.GRAY)
+                                        .append(filledPart)
+                                        .append(emptyPart)
+                                        .append(Component.text("] ", NamedTextColor.GRAY))
+                                        .append(Component.text("$percent%", NamedTextColor.GRAY))
+                        val newText = Component.text("$symbol ", NamedTextColor.YELLOW).append(bar)
+                        cachedProgressBars[player.uniqueId] = cacheKey to newText
+                        newText
+                }
 
                 displayManager.updateIndicator(player, base, text)
         }
@@ -509,7 +561,6 @@ class VisionActivity(
                 val baseRadius = radius * tan(Math.toRadians(halfFov))
                 val center = origin.clone().add(forward.clone().multiply(radius))
 
-                // Draw circle at cone base
                 val steps = (fov / 5).toInt().coerceAtLeast(8).coerceAtMost(72)
                 for (i in 0 until steps) {
                         val angle = 2 * PI * i / steps
@@ -612,6 +663,7 @@ class VisionActivity(
                 seenPlayers.clear()
                 detectionProgress.clear()
                 knownViewers.clear()
+                cachedProgressBars.clear()
         }
 
         private fun applyForcedRotation() {
