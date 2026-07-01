@@ -2,6 +2,7 @@ plugins {
     kotlin("jvm") version "2.2.10"
     id("com.typewritermc.module-plugin") version "2.1.0"
     id("org.owasp.dependencycheck") version "12.2.2"
+    id("org.jlleitschuh.gradle.ktlint") version "12.1.2"
 }
 
 group = "de.chaos"
@@ -34,7 +35,9 @@ typewriter {
     extension {
         name = "Vision"
         shortDescription = "Raycast & Vision system for NPCs"
-        description = "Provides an advanced vision system for NPCs. Supports raycasts, line-of-sight checks, and OnPlayerSeen criteria to simulate realistic perception and player detection within Typewriter."
+        description =
+            "Provides an advanced vision system for NPCs. Supports raycasts, line-of-sight checks, and " +
+            "OnPlayerSeen criteria to simulate realistic perception and player detection within Typewriter."
         engineVersion = "0.9.0-beta-174"
         channel = com.typewritermc.moduleplugin.ReleaseChannel.BETA
 
@@ -48,8 +51,12 @@ kotlin {
     jvmToolchain(21)
 }
 
+ktlint {
+    version.set("1.0.1")
+}
+
 tasks.jar {
-    archiveFileName.set("VisionExtension-${version}.jar")
+    archiveFileName.set("VisionExtension-$version.jar")
 }
 
 val typewriterExtensionDir =
@@ -66,11 +73,11 @@ tasks.register<Copy>("copyJarToServer") {
     doFirst {
         val targetDir =
             typewriterExtensionDir.orNull ?: throw GradleException(
-                "Set -PtypewriterExtensionDir=<path> or TYPEWRITER_EXTENSION_DIR before running copyJarToServer."
+                "Set -PtypewriterExtensionDir=<path> or TYPEWRITER_EXTENSION_DIR before running copyJarToServer.",
             )
         if (targetDir.isBlank()) {
             throw GradleException(
-                "Set -PtypewriterExtensionDir=<path> or TYPEWRITER_EXTENSION_DIR before running copyJarToServer."
+                "Set -PtypewriterExtensionDir=<path> or TYPEWRITER_EXTENSION_DIR before running copyJarToServer.",
             )
         }
         println("Copying ${jar.get().archiveFileName.get()} to $targetDir")
@@ -81,3 +88,6 @@ tasks.test {
     useJUnitPlatform()
 }
 
+tasks.named("check") {
+    dependsOn(tasks.named("ktlintCheck"))
+}

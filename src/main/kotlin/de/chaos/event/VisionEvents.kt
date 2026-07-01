@@ -10,12 +10,22 @@ import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 
 internal interface VisionEventSink {
-    fun playerSeen(context: ActivityContext, player: Player)
-    fun playerLost(context: ActivityContext, player: Player)
+    fun playerSeen(
+        context: ActivityContext,
+        player: Player,
+    )
+
+    fun playerLost(
+        context: ActivityContext,
+        player: Player,
+    )
 }
 
 internal class VisionEventDispatcher : VisionEventSink {
-    override fun playerSeen(context: ActivityContext, player: Player) {
+    override fun playerSeen(
+        context: ActivityContext,
+        player: Player,
+    ) {
         Query(PlayerSeenEntry::class)
             .findWhere {
                 it.entity == context.instanceRef ||
@@ -29,11 +39,14 @@ internal class VisionEventDispatcher : VisionEventSink {
                 Runnable {
                     Bukkit.getPluginManager()
                         .callEvent(PlayerSeenEvent(context.instanceRef, player))
-                }
+                },
             )
     }
 
-    override fun playerLost(context: ActivityContext, player: Player) {
+    override fun playerLost(
+        context: ActivityContext,
+        player: Player,
+    ) {
         Query(PlayerLostEntry::class)
             .findWhere {
                 it.entity == context.instanceRef ||
@@ -47,7 +60,7 @@ internal class VisionEventDispatcher : VisionEventSink {
                 Runnable {
                     Bukkit.getPluginManager()
                         .callEvent(PlayerLostEvent(context.instanceRef, player))
-                }
+                },
             )
     }
 }

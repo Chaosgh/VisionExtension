@@ -1,6 +1,27 @@
 package de.chaos.entry
 
 internal object VisionEntryHelp {
+    const val VISION_RADIUS = "Maximum distance in blocks the NPC can see"
     const val FOV_OR_WIDTH = "Cone field of view in degrees; line corridor width in blocks"
+    const val SHAPE = "Shape of the vision area"
+    const val SHOW_DISPLAYS = "Display item displays to visualize the vision area"
+    const val DISPLAY_UPDATE_INTERVAL = "Ticks between vision display refreshes"
+    const val MATERIAL = "Material used when visualizing vision"
+    const val DISPLAY_SIZE = "Size of the item displays"
+    const val LOOK_AT_PLAYER = "Rotate NPC to face players inside the vision area"
+    const val STOP_WHEN_LOOKING = "Pause wrapped activity while a player is visible"
+    const val SNEAK_PROGRESS = "Require progressive detection while the player is sneaking"
+    const val WALK_PROGRESS = "Apply progressive detection while walking (non-sneak)"
+    const val WALK_MIN_SECONDS = "Minimum seconds to detect a walking player at point-blank"
+    const val WALK_MAX_SECONDS = "Maximum seconds to detect a walking player at max radius distance"
+    const val SNEAK_MIN_SECONDS = "Minimum seconds to detect a sneaking player at point-blank"
+    const val SNEAK_MAX_SECONDS = "Maximum seconds to detect a sneaking player at max radius distance"
+    const val DECAY_PER_SECOND = "Progress decay per second when not visible"
+    const val LOST_DELAY = "Ticks a detected player can be briefly hidden before being lost"
+    const val RAYCAST_INTERVAL = "Ticks between line-of-sight raycasts per player"
     const val DETECTION_INDICATOR = "Show a detection indicator above the NPC"
+    const val INDICATOR_OFFSET_Y = "Vertical offset for the detection indicator above head (blocks)"
+    const val FORCED_LOOK_ENABLED = "Always face a specific yaw/pitch while this activity runs"
+    const val FORCED_LOOK_YAW = "Forced yaw (degrees, 0-360)"
+    const val FORCED_LOOK_PITCH = "Forced pitch (degrees, -90 to 90)"
 }

@@ -2,9 +2,9 @@ package de.chaos
 
 import de.chaos.vision.DetectionIndicatorFormatter
 import de.chaos.vision.IndicatorCacheKey
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 
 class DetectionIndicatorFormatterTest {
     @Test
@@ -16,9 +16,10 @@ class DetectionIndicatorFormatterTest {
 
     @Test
     fun `text uses stable progress bar symbols`() {
-        val text = PlainTextComponentSerializer.plainText().serialize(
-            DetectionIndicatorFormatter.text(IndicatorCacheKey(filled = 3, percent = 25, complete = false))
-        )
+        val text =
+            PlainTextComponentSerializer.plainText().serialize(
+                DetectionIndicatorFormatter.text(IndicatorCacheKey(filled = 3, percent = 25, complete = false)),
+            )
 
         assertEquals("?  [\u2588\u2588\u2588\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591] 25%", text)
     }

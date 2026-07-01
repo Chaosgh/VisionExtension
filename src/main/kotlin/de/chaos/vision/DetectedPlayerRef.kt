@@ -1,7 +1,7 @@
 package de.chaos.vision
 
-import java.util.UUID
 import org.bukkit.entity.Player
+import java.util.UUID
 
 internal data class DetectedPlayerRef(
     val uuid: UUID,

@@ -1,12 +1,15 @@
 package de.chaos
 
-import com.github.retrooper.packetevents.protocol.world.Location as PELocation
 import com.github.retrooper.packetevents.util.Vector3f
 import de.chaos.display.ClientSideDisplayManager
 import de.chaos.display.DisplayEntity
 import de.chaos.display.DisplayItem
 import de.chaos.display.DisplayRuntime
 import de.chaos.display.DisplayViewer
+import net.kyori.adventure.text.Component
+import org.bukkit.Location
+import org.bukkit.Material
+import org.bukkit.entity.Player
 import java.util.Collections
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
@@ -15,10 +18,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import net.kyori.adventure.text.Component
-import org.bukkit.Location
-import org.bukkit.Material
-import org.bukkit.entity.Player
+import com.github.retrooper.packetevents.protocol.world.Location as PELocation
 
 class ClientSideDisplayManagerTest {
     @Test
@@ -105,9 +105,10 @@ class ClientSideDisplayManagerTest {
 
     @Test
     fun `concurrent indicator updates create one display for the same viewer`() {
-        val runtime = FakeDisplayRuntime().apply {
-            textDisplayDelayMillis = 25
-        }
+        val runtime =
+            FakeDisplayRuntime().apply {
+                textDisplayDelayMillis = 25
+            }
         val player = fakePlayer()
         runtime.connect(player)
         val manager = ClientSideDisplayManager(Material.BARRIER, 0.05f, runtime)
@@ -177,7 +178,6 @@ class ClientSideDisplayManagerTest {
             }
             return FakeDisplayEntity(nextEntityId++).also(textDisplays::add)
         }
-
     }
 
     private data class FakeDisplayViewer(val playerId: UUID) : DisplayViewer
@@ -213,13 +213,19 @@ class ClientSideDisplayManagerTest {
             teleports += location
         }
 
-        override fun rotateHead(yaw: Float, pitch: Float) = Unit
+        override fun rotateHead(
+            yaw: Float,
+            pitch: Float,
+        ) = Unit
 
         override fun remove() {
             removed = true
         }
 
-        override fun configureItem(item: DisplayItem, scale: Vector3f) {
+        override fun configureItem(
+            item: DisplayItem,
+            scale: Vector3f,
+        ) {
             this.item = item
             this.scale = scale
         }
@@ -228,7 +234,11 @@ class ClientSideDisplayManagerTest {
             this.scale = scale
         }
 
-        override fun configureText(text: Component, shadow: Boolean, billboardCenter: Boolean) {
+        override fun configureText(
+            text: Component,
+            shadow: Boolean,
+            billboardCenter: Boolean,
+        ) {
             this.text = text
             this.shadow = shadow
             this.billboardCenter = billboardCenter

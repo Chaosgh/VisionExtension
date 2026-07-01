@@ -3,7 +3,6 @@ package de.chaos.display
 import com.github.retrooper.packetevents.PacketEvents
 import com.github.retrooper.packetevents.protocol.entity.type.EntityTypes
 import com.github.retrooper.packetevents.protocol.player.User
-import com.github.retrooper.packetevents.protocol.world.Location as PELocation
 import com.github.retrooper.packetevents.util.Vector3f
 import io.github.retrooper.packetevents.util.SpigotConversionUtil
 import me.tofaa.entitylib.meta.display.AbstractDisplayMeta
@@ -16,6 +15,7 @@ import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import com.github.retrooper.packetevents.protocol.item.ItemStack as PacketItemStack
+import com.github.retrooper.packetevents.protocol.world.Location as PELocation
 
 internal interface DisplayViewer
 
@@ -25,20 +25,41 @@ internal interface DisplayEntity {
     val entityId: Int
 
     fun addViewer(viewer: DisplayViewer)
+
     fun spawn(location: PELocation)
+
     fun teleport(location: PELocation)
-    fun rotateHead(yaw: Float, pitch: Float)
+
+    fun rotateHead(
+        yaw: Float,
+        pitch: Float,
+    )
+
     fun remove()
-    fun configureItem(item: DisplayItem, scale: Vector3f)
+
+    fun configureItem(
+        item: DisplayItem,
+        scale: Vector3f,
+    )
+
     fun updateItemScale(scale: Vector3f)
-    fun configureText(text: Component, shadow: Boolean, billboardCenter: Boolean)
+
+    fun configureText(
+        text: Component,
+        shadow: Boolean,
+        billboardCenter: Boolean,
+    )
+
     fun updateText(text: Component)
 }
 
 internal interface DisplayRuntime {
     fun user(player: Player): DisplayViewer?
+
     fun itemStack(material: Material): DisplayItem
+
     fun itemDisplay(): DisplayEntity
+
     fun textDisplay(): DisplayEntity
 }
 
@@ -89,7 +110,10 @@ private class WrapperDisplayEntity(
         entity.teleport(location)
     }
 
-    override fun rotateHead(yaw: Float, pitch: Float) {
+    override fun rotateHead(
+        yaw: Float,
+        pitch: Float,
+    ) {
         requirePrimaryThread()
         entity.rotateHead(yaw, pitch)
     }
@@ -99,22 +123,29 @@ private class WrapperDisplayEntity(
         entity.remove()
     }
 
-    override fun configureItem(item: DisplayItem, scale: Vector3f) {
+    override fun configureItem(
+        item: DisplayItem,
+        scale: Vector3f,
+    ) {
         requirePrimaryThread()
-        val meta = entity.entityMeta as ItemDisplayMeta
+        val meta = itemMeta()
         meta.item = item.asPacketEventsItem()
         meta.scale = scale
     }
 
     override fun updateItemScale(scale: Vector3f) {
         requirePrimaryThread()
-        val meta = entity.entityMeta as ItemDisplayMeta
+        val meta = itemMeta()
         meta.scale = scale
     }
 
-    override fun configureText(text: Component, shadow: Boolean, billboardCenter: Boolean) {
+    override fun configureText(
+        text: Component,
+        shadow: Boolean,
+        billboardCenter: Boolean,
+    ) {
         requirePrimaryThread()
-        val meta = entity.entityMeta as TextDisplayMeta
+        val meta = textMeta()
         meta.text = text
         meta.isShadow = shadow
         if (billboardCenter) {
@@ -124,8 +155,24 @@ private class WrapperDisplayEntity(
 
     override fun updateText(text: Component) {
         requirePrimaryThread()
-        val meta = entity.entityMeta as TextDisplayMeta
+        val meta = textMeta()
         meta.text = text
+    }
+
+    private fun itemMeta(): ItemDisplayMeta {
+        val meta = entity.entityMeta
+        require(meta is ItemDisplayMeta) {
+            "Expected ItemDisplayMeta for display entity ${entity.entityId}, got ${meta::class.java.name}."
+        }
+        return meta
+    }
+
+    private fun textMeta(): TextDisplayMeta {
+        val meta = entity.entityMeta
+        require(meta is TextDisplayMeta) {
+            "Expected TextDisplayMeta for display entity ${entity.entityId}, got ${meta::class.java.name}."
+        }
+        return meta
     }
 }
 

@@ -1,7 +1,7 @@
 package de.chaos.vision
 
-import kotlin.math.max
 import org.bukkit.Material
+import kotlin.math.max
 
 internal data class NormalizedVisionConfig(
     val radius: Double,

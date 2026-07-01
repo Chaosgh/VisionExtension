@@ -6,6 +6,12 @@ import de.chaos.vision.DetectionTracker
 import de.chaos.vision.VisionConfig
 import de.chaos.vision.VisionSensor
 import de.chaos.vision.VisionShape
+import org.bukkit.Bukkit
+import org.bukkit.Location
+import org.bukkit.Material
+import org.bukkit.util.Vector
+import org.mockbukkit.mockbukkit.MockBukkit
+import org.mockbukkit.mockbukkit.ServerMock
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -13,12 +19,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
-import org.bukkit.Bukkit
-import org.bukkit.Location
-import org.bukkit.Material
-import org.bukkit.util.Vector
-import org.mockbukkit.mockbukkit.MockBukkit
-import org.mockbukkit.mockbukkit.ServerMock
 
 open class BukkitIntegrationTest {
     private lateinit var server: ServerMock
@@ -41,10 +41,10 @@ open class BukkitIntegrationTest {
                 VisionConfig(
                     showDetectionIndicator = false,
                     sneakProgressEnabled = false,
-                    walkProgressEnabled = false
+                    walkProgressEnabled = false,
                 ),
                 NoopDetectionDisplaySink,
-                events
+                events,
             )
         val context = fakeActivityContext()
         val player = server.addPlayer("SeenPlayer")
@@ -71,7 +71,7 @@ open class BukkitIntegrationTest {
         val state =
             DetectionState(
                 lastRaycastTick = 1L,
-                lastLineOfSight = true
+                lastLineOfSight = true,
             )
         val result =
             VisionSensor(
@@ -79,15 +79,15 @@ open class BukkitIntegrationTest {
                     radius = 10.0,
                     fovDegrees = 90.0,
                     shape = VisionShape.CONE,
-                    raycastIntervalTicks = 5
-                )
+                    raycastIntervalTicks = 5,
+                ),
             ).check(
                 origin = origin,
                 forward = Vector(0.0, 0.0, 1.0),
                 direction = direction,
                 normalizedDirection = Vector(),
                 state = state,
-                tickIndex = 2L
+                tickIndex = 2L,
             )
 
         assertTrue(result.visible)
@@ -114,7 +114,7 @@ open class BukkitIntegrationTest {
         assertTrue(throwable is IllegalStateException)
         assertEquals(
             "PacketEvents display runtime must be used from the Bukkit primary thread.",
-            throwable.message
+            throwable.message,
         )
     }
 }

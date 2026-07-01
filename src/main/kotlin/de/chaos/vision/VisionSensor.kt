@@ -1,9 +1,9 @@
 package de.chaos.vision
 
-import kotlin.math.cos
-import kotlin.math.sqrt
 import org.bukkit.Location
 import org.bukkit.util.Vector
+import kotlin.math.cos
+import kotlin.math.sqrt
 
 internal data class VisionCheckResult(
     val visible: Boolean,
@@ -46,7 +46,11 @@ internal class VisionSensor(config: NormalizedVisionConfig) {
         return VisionCheckResult(visible, distance, distanceSquared)
     }
 
-    fun centerFactor(forward: Vector, normalizedDirection: Vector, distance: Double): Double {
+    fun centerFactor(
+        forward: Vector,
+        normalizedDirection: Vector,
+        distance: Double,
+    ): Double {
         return when (shape) {
             VisionShape.CONE -> {
                 val dot = forward.dot(normalizedDirection).coerceIn(coneDotThreshold, 1.0)
@@ -67,7 +71,8 @@ internal class VisionSensor(config: NormalizedVisionConfig) {
     private fun isWithinBroadphase(distanceSquared: Double): Boolean {
         return when (shape) {
             VisionShape.CONE,
-            VisionShape.SPHERE -> distanceSquared <= radiusSquared
+            VisionShape.SPHERE,
+            -> distanceSquared <= radiusSquared
             VisionShape.LINE -> distanceSquared <= radiusSquared + halfFovSquared
         }
     }
@@ -76,7 +81,7 @@ internal class VisionSensor(config: NormalizedVisionConfig) {
         forward: Vector,
         direction: Vector,
         normalizedDirection: Vector,
-        distanceSquared: Double
+        distanceSquared: Double,
     ): Boolean {
         return when (shape) {
             VisionShape.CONE -> {
@@ -101,7 +106,7 @@ internal class VisionSensor(config: NormalizedVisionConfig) {
         origin: Location,
         direction: Vector,
         distance: Double,
-        tickIndex: Long
+        tickIndex: Long,
     ): Boolean {
         if (tickIndex - state.lastRaycastTick >= raycastIntervalTicks) {
             state.lastLineOfSight =

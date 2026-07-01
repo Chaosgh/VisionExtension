@@ -7,11 +7,11 @@ import de.chaos.vision.VisionDebugRenderer
 import de.chaos.vision.VisionMath
 import de.chaos.vision.VisionShape
 import de.chaos.vision.normalized
+import org.bukkit.Location
+import org.bukkit.entity.Player
 import kotlin.math.cos
 import kotlin.test.Test
 import kotlin.test.assertTrue
-import org.bukkit.Location
-import org.bukkit.entity.Player
 
 class VisionDebugRendererTest {
     @Test
@@ -61,11 +61,18 @@ class VisionDebugRendererTest {
         val points = mutableListOf<Location>()
         val lines = mutableListOf<DebugLine>()
 
-        override fun updatePointDisplay(location: Location, viewer: Player) {
+        override fun updatePointDisplay(
+            location: Location,
+            viewer: Player,
+        ) {
             points += location
         }
 
-        override fun updateLineDisplay(start: Location, end: Location, viewer: Player) {
+        override fun updateLineDisplay(
+            start: Location,
+            end: Location,
+            viewer: Player,
+        ) {
             lines += DebugLine(start, end)
         }
     }

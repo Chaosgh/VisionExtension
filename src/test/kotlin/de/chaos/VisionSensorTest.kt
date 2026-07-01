@@ -4,12 +4,12 @@ import de.chaos.vision.DetectionState
 import de.chaos.vision.VisionConfig
 import de.chaos.vision.VisionSensor
 import de.chaos.vision.VisionShape
+import org.bukkit.Location
+import org.bukkit.util.Vector
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import org.bukkit.Location
-import org.bukkit.util.Vector
 
 class VisionSensorTest {
     @Test
@@ -23,7 +23,7 @@ class VisionSensorTest {
                 direction = Vector(0.0, 0.0, 5.0),
                 normalizedDirection = normalizedDirection,
                 state = state,
-                tickIndex = 1L
+                tickIndex = 1L,
             )
 
         assertTrue(result.visible)
@@ -41,7 +41,7 @@ class VisionSensorTest {
                 direction = Vector(0.0, 0.0, 10.1),
                 normalizedDirection = Vector(),
                 state = DetectionState(),
-                tickIndex = 1L
+                tickIndex = 1L,
             )
         assertFalse(byRadius.visible)
 
@@ -52,7 +52,7 @@ class VisionSensorTest {
                 direction = Vector(10.0, 0.0, 0.0),
                 normalizedDirection = Vector(),
                 state = DetectionState(),
-                tickIndex = 1L
+                tickIndex = 1L,
             )
         assertFalse(byFov.visible)
     }
@@ -66,7 +66,7 @@ class VisionSensorTest {
                 direction = Vector(3.0, 0.0, 0.0),
                 normalizedDirection = Vector(),
                 state = DetectionState(),
-                tickIndex = 1L
+                tickIndex = 1L,
             )
 
         assertTrue(result.visible)
@@ -83,7 +83,7 @@ class VisionSensorTest {
                 direction = Vector(1.5, 0.0, 5.0),
                 normalizedDirection = Vector(),
                 state = DetectionState(),
-                tickIndex = 1L
+                tickIndex = 1L,
             )
         assertTrue(inside.visible)
 
@@ -94,7 +94,7 @@ class VisionSensorTest {
                 direction = Vector(2.5, 0.0, 5.0),
                 normalizedDirection = Vector(),
                 state = DetectionState(),
-                tickIndex = 1L
+                tickIndex = 1L,
             )
         assertFalse(tooWide.visible)
 
@@ -105,7 +105,7 @@ class VisionSensorTest {
                 direction = Vector(0.0, 0.0, -1.0),
                 normalizedDirection = Vector(),
                 state = DetectionState(),
-                tickIndex = 1L
+                tickIndex = 1L,
             )
         assertFalse(behind.visible)
     }
@@ -122,7 +122,7 @@ class VisionSensorTest {
                 direction = Vector(0.0, 0.0, 5.0),
                 normalizedDirection = Vector(),
                 state = state,
-                tickIndex = 1L
+                tickIndex = 1L,
             )
         assertTrue(first.visible)
         assertEquals(1L, state.lastRaycastTick)
@@ -135,7 +135,7 @@ class VisionSensorTest {
                 direction = Vector(0.0, 0.0, 5.0),
                 normalizedDirection = Vector(),
                 state = state,
-                tickIndex = 2L
+                tickIndex = 2L,
             )
         assertFalse(cached.visible)
         assertEquals(1L, state.lastRaycastTick)
@@ -147,7 +147,7 @@ class VisionSensorTest {
                 direction = Vector(0.0, 0.0, 5.0),
                 normalizedDirection = Vector(),
                 state = state,
-                tickIndex = 6L
+                tickIndex = 6L,
             )
         assertTrue(refreshed.visible)
         assertEquals(6L, state.lastRaycastTick)
@@ -164,12 +164,17 @@ class VisionSensorTest {
                 radius = radius,
                 fovDegrees = fovDegrees,
                 shape = shape,
-                raycastIntervalTicks = raycastIntervalTicks
-            )
+                raycastIntervalTicks = raycastIntervalTicks,
+            ),
         )
     }
 
-    private fun assertVectorEquals(expectedX: Double, expectedY: Double, expectedZ: Double, actual: Vector) {
+    private fun assertVectorEquals(
+        expectedX: Double,
+        expectedY: Double,
+        expectedZ: Double,
+        actual: Vector,
+    ) {
         assertEquals(expectedX, actual.x, EPSILON)
         assertEquals(expectedY, actual.y, EPSILON)
         assertEquals(expectedZ, actual.z, EPSILON)

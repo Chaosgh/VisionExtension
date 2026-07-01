@@ -1,13 +1,16 @@
 package de.chaos
 
+import com.typewritermc.core.entries.Ref
 import com.typewritermc.engine.paper.entry.entity.ActivityContext
-import com.typewritermc.engine.paper.entry.entity.EntityState
 import com.typewritermc.engine.paper.entry.entity.EntityActivity
+import com.typewritermc.engine.paper.entry.entity.EntityState
 import com.typewritermc.engine.paper.entry.entity.PositionProperty
 import com.typewritermc.engine.paper.entry.entity.TickResult
 import com.typewritermc.engine.paper.entry.entries.EntityProperty
-import de.chaos.activity.PausableActivity
+import com.typewritermc.engine.paper.entry.entries.GenericEntityActivityEntry
 import de.chaos.activity.PatrolVisionActivity
+import de.chaos.activity.PausableActivity
+import de.chaos.entry.ActivityVisionEntry
 import de.chaos.vision.DetectionTracker
 import de.chaos.vision.VisionActivity
 import de.chaos.vision.VisionActivityDependencies
@@ -16,11 +19,11 @@ import de.chaos.vision.VisionDebugRenderer
 import de.chaos.vision.VisionSensor
 import de.chaos.vision.VisionTargetSelector
 import de.chaos.vision.normalized
+import org.bukkit.Location
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import org.bukkit.Location
 
 class ActivityLifecycleTest {
     @Test
@@ -85,9 +88,9 @@ class ActivityLifecycleTest {
                     showDetectionIndicator = false,
                     forcedLookEnabled = true,
                     forcedYaw = -90f,
-                    forcedPitch = 200f
+                    forcedPitch = 200f,
                 ),
-                start
+                start,
             )
 
         activity.initialize(fakeActivityContext(), start)
@@ -113,7 +116,7 @@ class ActivityLifecycleTest {
                 walkProgressEnabled = false,
                 forcedLookEnabled = true,
                 forcedYaw = 0f,
-                forcedPitch = 0f
+                forcedPitch = 0f,
             )
         val events = RecordingVisionEventSink()
         val activity = visionActivity(config, events, testPosition(yaw = 90f))
@@ -142,9 +145,9 @@ class ActivityLifecycleTest {
                     showDetectionIndicator = false,
                     forcedLookEnabled = true,
                     forcedYaw = 180f,
-                    forcedPitch = -20f
+                    forcedPitch = -20f,
                 ),
-                patrolStart
+                patrolStart,
             )
         val activity = PatrolVisionActivity(patrol, vision, stopWhenLooking = true)
 
@@ -153,6 +156,94 @@ class ActivityLifecycleTest {
 
         assertEquals(180f, activity.currentPosition.yaw)
         assertEquals(-20f, activity.currentPosition.pitch)
+    }
+
+    @Test
+    fun `patrol vision activity treats negative resume delay as zero`() {
+        val start = testPosition()
+        val entityState = EntityState()
+        val seenPlayer = fakePlayer(eyeLocation = Location(null, 0.0, entityState.eyeHeight, 4.0))
+        val seenContext = fakeActivityContext(viewed = true, viewers = listOf(seenPlayer), entityState = entityState)
+        val hiddenContext = fakeActivityContext(viewed = false, entityState = entityState)
+        val delegate = RecordingActivity(start)
+        val patrol = PausableActivity(delegate)
+        val vision =
+            visionActivity(
+                VisionConfig(
+                    radius = 10.0,
+                    showDisplays = false,
+                    showDetectionIndicator = false,
+                    sneakProgressEnabled = false,
+                    walkProgressEnabled = false,
+                    lostDelayTicks = 0,
+                    lookAtPlayer = false,
+                ),
+                RecordingVisionEventSink(),
+                start,
+            )
+        val activity = PatrolVisionActivity(patrol, vision, stopWhenLooking = true, resumeDelayTicks = -5)
+
+        activity.initialize(seenContext, start)
+        activity.tick(seenContext)
+        activity.tick(hiddenContext)
+
+        assertEquals(1, delegate.tickCalls)
+    }
+
+    @Test
+    fun `activity vision entry cuts recursive base activity references`() {
+        val context = fakeActivityContext()
+        val start = testPosition()
+        lateinit var owner: ActivityVisionEntry
+        val recursiveBase =
+            object : GenericEntityActivityEntry {
+                override val id: String = "recursive-base"
+                override val name: String = "Recursive Base"
+
+                override fun create(
+                    context: ActivityContext,
+                    currentLocation: PositionProperty,
+                ): EntityActivity<ActivityContext> {
+                    return owner.create(context, currentLocation)
+                }
+            }
+        owner =
+            ActivityVisionEntry(
+                id = "owner",
+                baseActivity = Ref("recursive-base", GenericEntityActivityEntry::class, recursiveBase),
+                showDisplays = false,
+                showDetectionIndicator = false,
+            )
+
+        val activity = owner.create(context, start)
+
+        assertEquals(start, activity.currentPosition)
+    }
+
+    @Test
+    fun `activity vision entry cuts two entry activity cycles`() {
+        val context = fakeActivityContext()
+        val start = testPosition()
+        val refToSecond = Ref("second", GenericEntityActivityEntry::class)
+        val first =
+            ActivityVisionEntry(
+                id = "first",
+                baseActivity = refToSecond,
+                showDisplays = false,
+                showDetectionIndicator = false,
+            )
+        val second =
+            ActivityVisionEntry(
+                id = "second",
+                baseActivity = Ref("first", GenericEntityActivityEntry::class, first),
+                showDisplays = false,
+                showDetectionIndicator = false,
+            )
+        refToSecond.cacheForTest(second)
+
+        val activity = first.create(context, start)
+
+        assertEquals(start, activity.currentPosition)
     }
 
     private fun visionActivity(
@@ -170,7 +261,7 @@ class ActivityLifecycleTest {
                 tracker = DetectionTracker(normalized, NoopVisionDisplayManager, events),
                 targetSelector = VisionTargetSelector(),
                 debugRenderer = VisionDebugRenderer(normalized, NoopVisionDisplayManager),
-            )
+            ),
         )
     }
 
@@ -188,7 +279,10 @@ class ActivityLifecycleTest {
             private set
         val initializedPositions = mutableListOf<PositionProperty>()
 
-        override fun initialize(context: ActivityContext, position: PositionProperty) {
+        override fun initialize(
+            context: ActivityContext,
+            position: PositionProperty,
+        ) {
             initializeCalls++
             currentPosition = position
             initializedPositions += position
@@ -201,6 +295,13 @@ class ActivityLifecycleTest {
 
         override fun dispose(context: ActivityContext) {
             disposeCalls++
+        }
+    }
+
+    private fun Ref<GenericEntityActivityEntry>.cacheForTest(entry: GenericEntityActivityEntry) {
+        javaClass.getDeclaredField("cache").also { field ->
+            field.isAccessible = true
+            field.set(this, entry)
         }
     }
 }

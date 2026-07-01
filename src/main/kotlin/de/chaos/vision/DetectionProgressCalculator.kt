@@ -10,7 +10,12 @@ internal class DetectionProgressCalculator(
             (!player.isSneaking && config.walkProgressEnabled)
     }
 
-    fun visibleProgress(player: Player, currentProgress: Double, distance: Double, centerFactor: Double): Double {
+    fun visibleProgress(
+        player: Player,
+        currentProgress: Double,
+        distance: Double,
+        centerFactor: Double,
+    ): Double {
         val minSeconds = if (player.isSneaking) config.sneakMinDetectSeconds else config.walkMinDetectSeconds
         val maxSeconds = if (player.isSneaking) config.sneakMaxDetectSeconds else config.walkMaxDetectSeconds
         val distanceFactor = (distance / config.radius).coerceIn(0.0, 1.0)

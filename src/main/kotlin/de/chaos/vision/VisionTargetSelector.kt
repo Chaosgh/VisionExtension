@@ -12,7 +12,11 @@ internal class VisionTargetSelector {
         target = null
     }
 
-    fun consider(detected: Boolean, player: Player, distanceSquared: Double) {
+    fun consider(
+        detected: Boolean,
+        player: Player,
+        distanceSquared: Double,
+    ) {
         if (!detected) return
         val current = target
         if (current == null || distanceSquared < current.distanceSquared) {

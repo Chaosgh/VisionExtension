@@ -39,30 +39,31 @@ interface VisionConfigProvider {
     val forcedLookYaw: Float get() = VisionDefaults.FORCED_LOOK_YAW
     val forcedLookPitch: Float get() = VisionDefaults.FORCED_LOOK_PITCH
 
-    fun toVisionConfig() = VisionConfig(
-        radius = visionRadius,
-        fovDegrees = fov,
-        shape = shape,
-        showDisplays = showDisplays,
-        displayUpdateIntervalTicks = displayUpdateIntervalTicks,
-        material = material,
-        displaySize = displaySize,
-        lookAtPlayer = lookAtPlayer,
-        sneakProgressEnabled = sneakProgressEnabled,
-        walkProgressEnabled = walkProgressEnabled,
-        sneakMinDetectSeconds = sneakMinDetectSeconds,
-        sneakMaxDetectSeconds = sneakMaxDetectSeconds,
-        walkMinDetectSeconds = walkMinDetectSeconds,
-        walkMaxDetectSeconds = walkMaxDetectSeconds,
-        visionDecayPerSecond = visionDecayPerSecond,
-        lostDelayTicks = lostDelayTicks,
-        raycastIntervalTicks = raycastIntervalTicks,
-        showDetectionIndicator = showDetectionIndicator,
-        indicatorOffsetY = indicatorOffsetY,
-        forcedLookEnabled = forcedLookEnabled,
-        forcedYaw = forcedLookYaw,
-        forcedPitch = forcedLookPitch,
-    )
+    fun toVisionConfig() =
+        VisionConfig(
+            radius = visionRadius,
+            fovDegrees = fov,
+            shape = shape,
+            showDisplays = showDisplays,
+            displayUpdateIntervalTicks = displayUpdateIntervalTicks,
+            material = material,
+            displaySize = displaySize,
+            lookAtPlayer = lookAtPlayer,
+            sneakProgressEnabled = sneakProgressEnabled,
+            walkProgressEnabled = walkProgressEnabled,
+            sneakMinDetectSeconds = sneakMinDetectSeconds,
+            sneakMaxDetectSeconds = sneakMaxDetectSeconds,
+            walkMinDetectSeconds = walkMinDetectSeconds,
+            walkMaxDetectSeconds = walkMaxDetectSeconds,
+            visionDecayPerSecond = visionDecayPerSecond,
+            lostDelayTicks = lostDelayTicks,
+            raycastIntervalTicks = raycastIntervalTicks,
+            showDetectionIndicator = showDetectionIndicator,
+            indicatorOffsetY = indicatorOffsetY,
+            forcedLookEnabled = forcedLookEnabled,
+            forcedYaw = forcedLookYaw,
+            forcedPitch = forcedLookPitch,
+        )
 
     fun createVisionActivity(currentLocation: PositionProperty): VisionActivity {
         return VisionActivity(toVisionConfig(), currentLocation)
@@ -81,7 +82,7 @@ interface VisionConfigProvider {
             PausableActivity(baseActivity),
             vision,
             stopWhenLooking,
-            resumeDelayTicks
+            resumeDelayTicks,
         )
     }
 }

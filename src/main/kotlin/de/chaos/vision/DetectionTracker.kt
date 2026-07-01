@@ -1,14 +1,13 @@
 package de.chaos.vision
 
+import com.typewritermc.engine.paper.entry.entity.ActivityContext
 import de.chaos.display.DetectionDisplaySink
 import de.chaos.event.VisionEventSink
-
-import java.util.UUID
 import net.kyori.adventure.text.Component
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.entity.Player
-import com.typewritermc.engine.paper.entry.entity.ActivityContext
+import java.util.UUID
 
 internal data class DetectionState(
     var progress: Double = 0.0,
@@ -52,7 +51,7 @@ internal class DetectionTracker(
         state: DetectionState,
         x: Double,
         eyeY: Double,
-        z: Double
+        z: Double,
     ): Boolean {
         if (state.seen && state.hiddenTicks < config.lostDelayTicks) {
             state.hiddenTicks++
@@ -94,7 +93,7 @@ internal class DetectionTracker(
         eyeY: Double,
         z: Double,
         distance: Double,
-        centerFactor: Double
+        centerFactor: Double,
     ): Boolean {
         state.hiddenTicks = 0
         state.lastSeenTarget = DetectedPlayerRef.from(player)
@@ -132,7 +131,10 @@ internal class DetectionTracker(
         return true
     }
 
-    fun cleanupMissingPlayers(context: ActivityContext, currentViewerIds: Set<UUID>) {
+    fun cleanupMissingPlayers(
+        context: ActivityContext,
+        currentViewerIds: Set<UUID>,
+    ) {
         val missingPlayerIds = states.keys.filter { it !in currentViewerIds }
         missingPlayerIds.forEach { uuid ->
             val state = states.remove(uuid) ?: return@forEach
@@ -152,25 +154,29 @@ internal class DetectionTracker(
         eyeY: Double,
         z: Double,
         progress: Double,
-        state: DetectionState
+        state: DetectionState,
     ) {
         val base = Location(player.world, x, eyeY + config.indicatorOffsetY, z)
         val cacheKey = DetectionIndicatorFormatter.cacheKey(progress)
 
         val cachedText = state.cachedProgressText
-        val text = if (cachedText != null && state.cachedProgressKey == cacheKey) {
-            cachedText
-        } else {
-            val newText = DetectionIndicatorFormatter.text(cacheKey)
-            state.cachedProgressKey = cacheKey
-            state.cachedProgressText = newText
-            newText
-        }
+        val text =
+            if (cachedText != null && state.cachedProgressKey == cacheKey) {
+                cachedText
+            } else {
+                val newText = DetectionIndicatorFormatter.text(cacheKey)
+                state.cachedProgressKey = cacheKey
+                state.cachedProgressText = newText
+                newText
+            }
 
         displayManager.updateIndicator(player, base, text)
     }
 
-    private fun removeIndicator(player: Player, state: DetectionState) {
+    private fun removeIndicator(
+        player: Player,
+        state: DetectionState,
+    ) {
         if (config.showDetectionIndicator) {
             displayManager.removeIndicator(player)
         }
@@ -178,7 +184,11 @@ internal class DetectionTracker(
         state.cachedProgressText = null
     }
 
-    private fun triggerLost(context: ActivityContext, state: DetectionState, currentPlayer: Player?) {
+    private fun triggerLost(
+        context: ActivityContext,
+        state: DetectionState,
+        currentPlayer: Player?,
+    ) {
         val player = currentPlayer ?: state.lastSeenTarget?.player ?: return
         events.playerLost(context, player)
         state.lastSeenTarget = null

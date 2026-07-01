@@ -1,30 +1,46 @@
 package de.chaos.display
 
 import com.github.retrooper.packetevents.util.Vector3f
-import com.github.retrooper.packetevents.protocol.world.Location as PELocation
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.asin
-import kotlin.math.atan2
 import net.kyori.adventure.text.Component
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.entity.Player
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.asin
+import kotlin.math.atan2
+import com.github.retrooper.packetevents.protocol.world.Location as PELocation
 
 internal interface DetectionDisplaySink {
-    fun updateIndicator(viewer: Player, location: Location, text: Component)
+    fun updateIndicator(
+        viewer: Player,
+        location: Location,
+        text: Component,
+    )
+
     fun removeIndicator(viewer: Player)
 }
 
 internal interface VisionDebugDisplaySink {
-    fun updatePointDisplay(location: Location, viewer: Player)
-    fun updateLineDisplay(start: Location, end: Location, viewer: Player)
+    fun updatePointDisplay(
+        location: Location,
+        viewer: Player,
+    )
+
+    fun updateLineDisplay(
+        start: Location,
+        end: Location,
+        viewer: Player,
+    )
 }
 
 internal interface VisionDisplayManager : DetectionDisplaySink, VisionDebugDisplaySink {
     fun prepareFrame(viewer: Player)
+
     fun finishFrame(viewer: Player)
+
     fun cleanupMissingViewers(currentViewerIds: Set<UUID>)
+
     fun dispose()
 }
 
@@ -39,17 +55,12 @@ internal interface VisionDisplayManager : DetectionDisplaySink, VisionDebugDispl
  * - Pure client-side rendering
  */
 internal class ClientSideDisplayManager(
-        private val material: Material,
-        private val displaySize: Float,
-        private val runtime: DisplayRuntime = PacketEventsDisplayRuntime,
+    private val material: Material,
+    private val displaySize: Float,
+    private val runtime: DisplayRuntime = PacketEventsDisplayRuntime,
 ) : VisionDisplayManager {
-    private class ViewerDisplayState {
-        val displays = mutableListOf<DisplayEntity>()
-        var nextIndex = 0
-    }
-
     // Pool of wrapper entities per viewer.
-    private val viewerDisplays = ConcurrentHashMap<UUID, ViewerDisplayState>()
+    private val viewerDisplays = ConcurrentHashMap<UUID, ViewerDisplayPool>()
     private val indicatorDisplays = ConcurrentHashMap<UUID, DisplayEntity>()
     private val knownViewers = ConcurrentHashMap.newKeySet<UUID>()
 
@@ -60,51 +71,42 @@ internal class ClientSideDisplayManager(
 
     override fun prepareFrame(viewer: Player) {
         val uuid = viewer.uniqueId
-        val state = viewerDisplays.computeIfAbsent(uuid) { ViewerDisplayState() }
-        synchronized(state) {
-            state.nextIndex = 0
-        }
+        val pool = viewerDisplays.computeIfAbsent(uuid) { ViewerDisplayPool() }
+        pool.prepareFrame()
         knownViewers.add(uuid)
     }
 
     /** Spawn or update a point display for this viewer. */
-    override fun updatePointDisplay(location: Location, viewer: Player) {
+    override fun updatePointDisplay(
+        location: Location,
+        viewer: Player,
+    ) {
         val uuid = viewer.uniqueId
-        val user = runtime.user(viewer) ?: run {
-            removeViewer(uuid)
-            return
-        }
-        val state = viewerDisplays.computeIfAbsent(uuid) { ViewerDisplayState() }
+        val user =
+            runtime.user(viewer) ?: run {
+                removeViewer(uuid)
+                return
+            }
+        val pool = viewerDisplays.computeIfAbsent(uuid) { ViewerDisplayPool() }
         knownViewers.add(uuid)
 
         val peLocation = toPELocation(location)
-
-        synchronized(state) {
-            val index = state.nextIndex
-            if (index < state.displays.size) {
-                val entity = state.displays[index]
-                entity.teleport(peLocation)
-            } else {
-                val entity = runtime.itemDisplay()
-                entity.configureItem(cachedItem, Vector3f(displaySize, displaySize, displaySize))
-
-                entity.addViewer(user)
-                entity.spawn(peLocation)
-                state.displays.add(entity)
-            }
-
-            state.nextIndex = index + 1
-        }
+        pool.updatePoint(peLocation, user, runtime, cachedItem, displaySize)
     }
 
     /** Spawn or update a line display (stretched in Z direction). */
-    override fun updateLineDisplay(start: Location, end: Location, viewer: Player) {
+    override fun updateLineDisplay(
+        start: Location,
+        end: Location,
+        viewer: Player,
+    ) {
         val uuid = viewer.uniqueId
-        val user = runtime.user(viewer) ?: run {
-            removeViewer(uuid)
-            return
-        }
-        val state = viewerDisplays.computeIfAbsent(uuid) { ViewerDisplayState() }
+        val user =
+            runtime.user(viewer) ?: run {
+                removeViewer(uuid)
+                return
+            }
+        val pool = viewerDisplays.computeIfAbsent(uuid) { ViewerDisplayPool() }
         knownViewers.add(uuid)
 
         val dir = end.clone().subtract(start).toVector()
@@ -119,33 +121,14 @@ internal class ClientSideDisplayManager(
         val pitch = Math.toDegrees(-asin(dirNorm.y)).toFloat()
 
         val peLocation = PELocation(mid.x, mid.y, mid.z, yaw, pitch)
-
-        synchronized(state) {
-            val index = state.nextIndex
-            if (index < state.displays.size) {
-                val entity = state.displays[index]
-                entity.teleport(peLocation)
-                entity.rotateHead(yaw, pitch)
-                entity.updateItemScale(Vector3f(displaySize, displaySize, length.toFloat()))
-            } else {
-                val entity = runtime.itemDisplay()
-                entity.configureItem(cachedItem, Vector3f(displaySize, displaySize, length.toFloat()))
-
-                entity.addViewer(user)
-                entity.spawn(peLocation)
-                entity.rotateHead(yaw, pitch)
-                state.displays.add(entity)
-            }
-
-            state.nextIndex = index + 1
-        }
+        pool.updateLine(peLocation, yaw, pitch, user, runtime, cachedItem, displaySize, length.toFloat())
     }
 
     /** Update or create text indicator display. */
     override fun updateIndicator(
-            viewer: Player,
-            location: Location,
-            text: Component,
+        viewer: Player,
+        location: Location,
+        text: Component,
     ) {
         val uuid = viewer.uniqueId
         val user = runtime.user(viewer)
@@ -180,21 +163,15 @@ internal class ClientSideDisplayManager(
     /** Cleanup excess displays after a frame. */
     override fun finishFrame(viewer: Player) {
         val uuid = viewer.uniqueId
-        val state = viewerDisplays[uuid] ?: return
-
-        synchronized(state) {
-            while (state.displays.size > state.nextIndex) {
-                val entity = state.displays.removeAt(state.displays.size - 1)
-                entity.remove()
-            }
-        }
+        val pool = viewerDisplays[uuid] ?: return
+        pool.finishFrame()
     }
 
     /** Cleanup displays for viewers that are no longer present. */
     override fun cleanupMissingViewers(currentViewerIds: Set<UUID>) {
         trackedViewerIds()
-                .filter { it !in currentViewerIds }
-                .forEach(::removeViewer)
+            .filter { it !in currentViewerIds }
+            .forEach(::removeViewer)
     }
 
     /** Dispose all displays. */
@@ -203,13 +180,7 @@ internal class ClientSideDisplayManager(
     }
 
     private fun removeViewer(uuid: UUID) {
-        viewerDisplays.remove(uuid)?.let { state ->
-            synchronized(state) {
-                state.displays.forEach { it.remove() }
-                state.displays.clear()
-                state.nextIndex = 0
-            }
-        }
+        viewerDisplays.remove(uuid)?.removeAll()
         indicatorDisplays.remove(uuid)?.remove()
         knownViewers.remove(uuid)
     }
@@ -228,5 +199,93 @@ internal class ClientSideDisplayManager(
 
     private companion object {
         const val MIN_LINE_LENGTH = 1.0E-6
+    }
+
+    private class ViewerDisplayPool {
+        private val displays = mutableListOf<DisplayEntity>()
+        private var nextIndex = 0
+
+        @Synchronized
+        fun prepareFrame() {
+            nextIndex = 0
+        }
+
+        @Synchronized
+        fun updatePoint(
+            location: PELocation,
+            user: DisplayViewer,
+            runtime: DisplayRuntime,
+            item: DisplayItem,
+            displaySize: Float,
+        ) {
+            val scale = Vector3f(displaySize, displaySize, displaySize)
+            val display = nextDisplay(user, runtime, item, scale, location)
+            if (!display.isNew) {
+                display.entity.teleport(location)
+                display.entity.updateItemScale(scale)
+            }
+        }
+
+        @Synchronized
+        fun updateLine(
+            location: PELocation,
+            yaw: Float,
+            pitch: Float,
+            user: DisplayViewer,
+            runtime: DisplayRuntime,
+            item: DisplayItem,
+            displaySize: Float,
+            length: Float,
+        ) {
+            val scale = Vector3f(displaySize, displaySize, length)
+            val display = nextDisplay(user, runtime, item, scale, location)
+            if (!display.isNew) {
+                display.entity.teleport(location)
+                display.entity.updateItemScale(scale)
+            }
+            display.entity.rotateHead(yaw, pitch)
+        }
+
+        @Synchronized
+        fun finishFrame() {
+            while (displays.size > nextIndex) {
+                displays.removeAt(displays.size - 1).remove()
+            }
+        }
+
+        @Synchronized
+        fun removeAll() {
+            displays.forEach { it.remove() }
+            displays.clear()
+            nextIndex = 0
+        }
+
+        private fun nextDisplay(
+            user: DisplayViewer,
+            runtime: DisplayRuntime,
+            item: DisplayItem,
+            scale: Vector3f,
+            location: PELocation,
+        ): PooledDisplay {
+            val index = nextIndex
+            nextIndex = index + 1
+            if (index < displays.size) {
+                return PooledDisplay(displays[index], isNew = false)
+            }
+
+            val entity =
+                runtime.itemDisplay().also { entity ->
+                    entity.configureItem(item, scale)
+                    entity.addViewer(user)
+                    entity.spawn(location)
+                    displays.add(entity)
+                }
+            return PooledDisplay(entity, isNew = true)
+        }
+
+        private data class PooledDisplay(
+            val entity: DisplayEntity,
+            val isNew: Boolean,
+        )
     }
 }

@@ -1,12 +1,12 @@
 package de.chaos.vision
 
+import org.bukkit.entity.Player
+import org.bukkit.util.Vector
 import kotlin.math.abs
 import kotlin.math.asin
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
-import org.bukkit.entity.Player
-import org.bukkit.util.Vector
 
 object VisionMath {
     fun normalizeYaw(yaw: Float): Float {
@@ -15,14 +15,21 @@ object VisionMath {
         return value
     }
 
-    fun fromYawPitch(yaw: Float, pitch: Float): Vector {
+    fun fromYawPitch(
+        yaw: Float,
+        pitch: Float,
+    ): Vector {
         val yawRad = Math.toRadians(yaw.toDouble())
         val pitchRad = Math.toRadians(pitch.toDouble())
         val xz = cos(pitchRad)
         return Vector(-sin(yawRad) * xz, -sin(pitchRad), cos(yawRad) * xz)
     }
 
-    fun normalizeInto(source: Vector, target: Vector, distance: Double) {
+    fun normalizeInto(
+        source: Vector,
+        target: Vector,
+        distance: Double,
+    ) {
         if (distance > 0.0001) {
             val invDist = 1.0 / distance
             target.setX(source.x * invDist)
@@ -39,7 +46,7 @@ object VisionMath {
         player: Player,
         origin: Vector,
         fallbackYaw: Float,
-        fallbackPitch: Float
+        fallbackPitch: Float,
     ): Pair<Float, Float> {
         val direction = player.eyeLocation.toVector().subtract(origin)
         if (direction.lengthSquared() < EPSILON) {
@@ -55,13 +62,16 @@ object VisionMath {
         currentYaw: Float,
         currentPitch: Float,
         targetYaw: Float,
-        targetPitch: Float
+        targetPitch: Float,
     ): Pair<Float, Float> {
         val maxYawStep = 12f
         val maxPitchStep = 12f
         val eps = 0.2f
 
-        fun wrapDelta(a: Float, b: Float): Float {
+        fun wrapDelta(
+            a: Float,
+            b: Float,
+        ): Float {
             var delta = b - a
             while (delta <= -180f) delta += 360f
             while (delta > 180f) delta -= 360f

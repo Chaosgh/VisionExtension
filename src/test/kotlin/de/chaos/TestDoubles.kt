@@ -7,13 +7,13 @@ import com.typewritermc.engine.paper.entry.entity.PositionProperty
 import de.chaos.display.DetectionDisplaySink
 import de.chaos.display.VisionDisplayManager
 import de.chaos.event.VisionEventSink
-import java.lang.reflect.InvocationHandler
-import java.lang.reflect.Proxy
-import java.util.UUID
 import net.kyori.adventure.text.Component
 import org.bukkit.GameMode
 import org.bukkit.Location
 import org.bukkit.entity.Player
+import java.lang.reflect.InvocationHandler
+import java.lang.reflect.Proxy
+import java.util.UUID
 
 internal fun fakePlayer(
     uniqueId: UUID = UUID.randomUUID(),
@@ -41,7 +41,7 @@ internal fun fakePlayer(
     return Proxy.newProxyInstance(
         Player::class.java.classLoader,
         arrayOf(Player::class.java),
-        handler
+        handler,
     ) as Player
 }
 
@@ -66,7 +66,7 @@ internal fun fakeActivityContext(
     return Proxy.newProxyInstance(
         ActivityContext::class.java.classLoader,
         arrayOf(ActivityContext::class.java),
-        handler
+        handler,
     ) as ActivityContext
 }
 
@@ -96,19 +96,34 @@ private fun defaultReturnValue(type: Class<*>): Any? {
 }
 
 internal object NoopDetectionDisplaySink : DetectionDisplaySink {
-    override fun updateIndicator(viewer: Player, location: Location, text: Component) = Unit
+    override fun updateIndicator(
+        viewer: Player,
+        location: Location,
+        text: Component,
+    ) = Unit
 
     override fun removeIndicator(viewer: Player) = Unit
 }
 
 internal object NoopVisionDisplayManager : VisionDisplayManager {
-    override fun updateIndicator(viewer: Player, location: Location, text: Component) = Unit
+    override fun updateIndicator(
+        viewer: Player,
+        location: Location,
+        text: Component,
+    ) = Unit
 
     override fun removeIndicator(viewer: Player) = Unit
 
-    override fun updatePointDisplay(location: Location, viewer: Player) = Unit
+    override fun updatePointDisplay(
+        location: Location,
+        viewer: Player,
+    ) = Unit
 
-    override fun updateLineDisplay(start: Location, end: Location, viewer: Player) = Unit
+    override fun updateLineDisplay(
+        start: Location,
+        end: Location,
+        viewer: Player,
+    ) = Unit
 
     override fun prepareFrame(viewer: Player) = Unit
 
@@ -123,11 +138,17 @@ internal class RecordingVisionEventSink : VisionEventSink {
     val seen = mutableListOf<UUID>()
     val lost = mutableListOf<UUID>()
 
-    override fun playerSeen(context: ActivityContext, player: Player) {
+    override fun playerSeen(
+        context: ActivityContext,
+        player: Player,
+    ) {
         seen += player.uniqueId
     }
 
-    override fun playerLost(context: ActivityContext, player: Player) {
+    override fun playerLost(
+        context: ActivityContext,
+        player: Player,
+    ) {
         lost += player.uniqueId
     }
 }

@@ -10,11 +10,11 @@ import de.chaos.entry.VisionConfigProvider
 import de.chaos.vision.VisionConfig
 import de.chaos.vision.VisionDefaults
 import de.chaos.vision.VisionShape
+import org.bukkit.Material
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import org.bukkit.Material
 
 class VisionConfigProviderTest {
     @Test

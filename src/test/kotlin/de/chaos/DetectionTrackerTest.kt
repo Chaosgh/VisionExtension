@@ -72,10 +72,10 @@ class DetectionTrackerTest {
                 showDetectionIndicator = false,
                 sneakProgressEnabled = false,
                 walkProgressEnabled = false,
-                lostDelayTicks = lostDelayTicks
+                lostDelayTicks = lostDelayTicks,
             ),
             NoopDetectionDisplaySink,
-            events
+            events,
         )
     }
 }

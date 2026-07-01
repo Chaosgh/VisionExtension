@@ -13,11 +13,11 @@ class DetectionProgressCalculatorTest {
     fun `uses progressive detection according to movement state`() {
         val sneakingOnly =
             DetectionProgressCalculator(
-                VisionConfig(sneakProgressEnabled = true, walkProgressEnabled = false).normalized()
+                VisionConfig(sneakProgressEnabled = true, walkProgressEnabled = false).normalized(),
             )
         val walkingOnly =
             DetectionProgressCalculator(
-                VisionConfig(sneakProgressEnabled = false, walkProgressEnabled = true).normalized()
+                VisionConfig(sneakProgressEnabled = false, walkProgressEnabled = true).normalized(),
             )
 
         assertTrue(sneakingOnly.usesProgressDetection(fakePlayer(sneaking = true)))
@@ -35,8 +35,8 @@ class DetectionProgressCalculatorTest {
                     walkProgressEnabled = true,
                     walkMinDetectSeconds = 1.0,
                     walkMaxDetectSeconds = 3.0,
-                    visionDecayPerSecond = 2.0
-                ).normalized()
+                    visionDecayPerSecond = 2.0,
+                ).normalized(),
             )
         val player = fakePlayer(sneaking = false)
 

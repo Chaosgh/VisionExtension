@@ -30,7 +30,7 @@ internal object DetectionIndicatorFormatter {
                     cacheKey.percent >= 66 -> NamedTextColor.GOLD
                     cacheKey.percent >= 33 -> NamedTextColor.YELLOW
                     else -> NamedTextColor.GREEN
-                }
+                },
             )
         val emptyPart = Component.text("\u2591".repeat(WIDTH - cacheKey.filled), NamedTextColor.DARK_GRAY)
         val symbol = if (cacheKey.complete) "!" else "?"

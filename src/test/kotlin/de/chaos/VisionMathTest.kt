@@ -1,10 +1,10 @@
 package de.chaos
 
 import de.chaos.vision.VisionMath
-import kotlin.test.Test
-import kotlin.test.assertEquals
 import org.bukkit.Location
 import org.bukkit.util.Vector
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
 class VisionMathTest {
     @Test
@@ -58,13 +58,21 @@ class VisionMathTest {
         assertFloatEquals(89.9f, clampedPitch.second)
     }
 
-    private fun assertVectorEquals(expectedX: Double, expectedY: Double, expectedZ: Double, actual: Vector) {
+    private fun assertVectorEquals(
+        expectedX: Double,
+        expectedY: Double,
+        expectedZ: Double,
+        actual: Vector,
+    ) {
         assertEquals(expectedX, actual.x, EPSILON)
         assertEquals(expectedY, actual.y, EPSILON)
         assertEquals(expectedZ, actual.z, EPSILON)
     }
 
-    private fun assertFloatEquals(expected: Float, actual: Float) {
+    private fun assertFloatEquals(
+        expected: Float,
+        actual: Float,
+    ) {
         assertEquals(expected.toDouble(), actual.toDouble(), EPSILON)
     }
 

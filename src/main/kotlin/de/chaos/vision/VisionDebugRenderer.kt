@@ -1,14 +1,13 @@
 package de.chaos.vision
 
+import com.typewritermc.engine.paper.entry.entity.PositionProperty
 import de.chaos.display.VisionDebugDisplaySink
-
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 import org.bukkit.Location
 import org.bukkit.entity.Player
 import org.bukkit.util.Vector
-import com.typewritermc.engine.paper.entry.entity.PositionProperty
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 internal class VisionDebugRenderer(
     config: NormalizedVisionConfig,
@@ -19,7 +18,11 @@ internal class VisionDebugRenderer(
     private val halfFov = fov / 2.0
     private val shape = config.shape
 
-    fun render(origin: Location, viewer: Player, position: PositionProperty) {
+    fun render(
+        origin: Location,
+        viewer: Player,
+        position: PositionProperty,
+    ) {
         when (shape) {
             VisionShape.CONE -> drawCone(origin, viewer, position)
             VisionShape.LINE -> drawLine(origin, viewer, position)
@@ -27,7 +30,11 @@ internal class VisionDebugRenderer(
         }
     }
 
-    private fun drawCone(origin: Location, viewer: Player, position: PositionProperty) {
+    private fun drawCone(
+        origin: Location,
+        viewer: Player,
+        position: PositionProperty,
+    ) {
         val basis = basis(position)
         val halfFovRadians = Math.toRadians(halfFov)
         val baseRadius = radius * sin(halfFovRadians)
@@ -53,7 +60,11 @@ internal class VisionDebugRenderer(
         }
     }
 
-    private fun drawLine(origin: Location, viewer: Player, position: PositionProperty) {
+    private fun drawLine(
+        origin: Location,
+        viewer: Player,
+        position: PositionProperty,
+    ) {
         val basis = basis(position)
         val end = origin.clone().add(basis.forward.clone().multiply(radius))
 
@@ -62,14 +73,14 @@ internal class VisionDebugRenderer(
                 origin.clone().add(basis.right.clone().multiply(halfFov)).add(basis.up.clone().multiply(halfFov)),
                 origin.clone().add(basis.right.clone().multiply(halfFov)).add(basis.up.clone().multiply(-halfFov)),
                 origin.clone().add(basis.right.clone().multiply(-halfFov)).add(basis.up.clone().multiply(halfFov)),
-                origin.clone().add(basis.right.clone().multiply(-halfFov)).add(basis.up.clone().multiply(-halfFov))
+                origin.clone().add(basis.right.clone().multiply(-halfFov)).add(basis.up.clone().multiply(-halfFov)),
             )
         val endCorners =
             arrayOf(
                 end.clone().add(basis.right.clone().multiply(halfFov)).add(basis.up.clone().multiply(halfFov)),
                 end.clone().add(basis.right.clone().multiply(halfFov)).add(basis.up.clone().multiply(-halfFov)),
                 end.clone().add(basis.right.clone().multiply(-halfFov)).add(basis.up.clone().multiply(halfFov)),
-                end.clone().add(basis.right.clone().multiply(-halfFov)).add(basis.up.clone().multiply(-halfFov))
+                end.clone().add(basis.right.clone().multiply(-halfFov)).add(basis.up.clone().multiply(-halfFov)),
             )
 
         for (i in 0 until 4) {
@@ -79,21 +90,24 @@ internal class VisionDebugRenderer(
         }
     }
 
-    private fun drawSphere(origin: Location, viewer: Player) {
+    private fun drawSphere(
+        origin: Location,
+        viewer: Player,
+    ) {
         val points = (radius * 8).toInt().coerceAtLeast(16).coerceAtMost(200)
         for (i in 0 until points) {
             val angle = 2 * PI * i / points
             displayManager.updatePointDisplay(
                 origin.clone().add(cos(angle) * radius, 0.0, sin(angle) * radius),
-                viewer
+                viewer,
             )
             displayManager.updatePointDisplay(
                 origin.clone().add(0.0, cos(angle) * radius, sin(angle) * radius),
-                viewer
+                viewer,
             )
             displayManager.updatePointDisplay(
                 origin.clone().add(cos(angle) * radius, sin(angle) * radius, 0.0),
-                viewer
+                viewer,
             )
         }
     }

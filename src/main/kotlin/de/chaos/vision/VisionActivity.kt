@@ -1,19 +1,18 @@
 package de.chaos.vision
 
-import de.chaos.display.ClientSideDisplayManager
-import de.chaos.display.VisionDisplayManager
-import de.chaos.event.VisionEventDispatcher
-
 import com.typewritermc.engine.paper.entry.entity.ActivityContext
 import com.typewritermc.engine.paper.entry.entity.EntityActivity
 import com.typewritermc.engine.paper.entry.entity.PositionProperty
 import com.typewritermc.engine.paper.entry.entity.TickResult
 import com.typewritermc.engine.paper.entry.entries.EntityProperty
 import com.typewritermc.engine.paper.utils.isLookable
-import java.util.UUID
+import de.chaos.display.ClientSideDisplayManager
+import de.chaos.display.VisionDisplayManager
+import de.chaos.event.VisionEventDispatcher
 import org.bukkit.Location
 import org.bukkit.entity.Player
 import org.bukkit.util.Vector
+import java.util.UUID
 
 class VisionActivity private constructor(
     private val config: NormalizedVisionConfig,
@@ -62,7 +61,10 @@ class VisionActivity private constructor(
     var isSeeingPlayer: Boolean = false
         private set
 
-    override fun initialize(context: ActivityContext, position: PositionProperty) {
+    override fun initialize(
+        context: ActivityContext,
+        position: PositionProperty,
+    ) {
         currentPosition = position
         applyForcedRotation()
     }
@@ -158,7 +160,7 @@ class VisionActivity private constructor(
             eyeY,
             posZ,
             check.distance,
-            centerFactor
+            centerFactor,
         )
     }
 
@@ -173,7 +175,7 @@ class VisionActivity private constructor(
         player: Player,
         origin: Location,
         forward: Vector,
-        state: DetectionState
+        state: DetectionState,
     ): VisionCheckResult {
         val playerEye = player.eyeLocation
         direction.setX(playerEye.x - origin.x)
@@ -183,7 +185,11 @@ class VisionActivity private constructor(
         return sensor.check(origin, forward, direction, normalizedDirection, state, tickIndex)
     }
 
-    private fun applyRotationFromTarget(posX: Double, eyeY: Double, posZ: Double) {
+    private fun applyRotationFromTarget(
+        posX: Double,
+        eyeY: Double,
+        posZ: Double,
+    ) {
         val target = targetSelector.player
         if (lookAtPlayer && target != null) {
             smoothLookAt(target, posX, eyeY, posZ)
@@ -192,25 +198,33 @@ class VisionActivity private constructor(
         }
     }
 
-    private fun smoothLookAt(player: Player, posX: Double, eyeY: Double, posZ: Double) {
+    private fun smoothLookAt(
+        player: Player,
+        posX: Double,
+        eyeY: Double,
+        posZ: Double,
+    ) {
         val targetRotation =
             VisionMath.yawPitchTo(
                 player,
                 Vector(posX, eyeY, posZ),
                 currentPosition.yaw,
-                currentPosition.pitch
+                currentPosition.pitch,
             )
         val smoothed =
             VisionMath.smoothRotate(
                 currentPosition.yaw,
                 currentPosition.pitch,
                 targetRotation.first,
-                targetRotation.second
+                targetRotation.second,
             )
         currentPosition = currentPosition.withRotation(smoothed.first, smoothed.second)
     }
 
-    private fun cleanupMissingViewers(context: ActivityContext, currentViewerIds: Set<UUID>) {
+    private fun cleanupMissingViewers(
+        context: ActivityContext,
+        currentViewerIds: Set<UUID>,
+    ) {
         displayManager.cleanupMissingViewers(currentViewerIds)
         tracker.cleanupMissingPlayers(context, currentViewerIds)
     }

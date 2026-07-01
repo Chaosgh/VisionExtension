@@ -12,16 +12,16 @@ import org.bukkit.event.Event
 import org.bukkit.event.HandlerList
 
 @Entry(
-        "on_player_seen",
-        "Trigger entries when a player enters an entity's vision",
-        Colors.GREEN,
-        "mdi:eye-check"
+    "on_player_seen",
+    "Trigger entries when a player enters an entity's vision",
+    Colors.GREEN,
+    "mdi:eye-check",
 )
 class PlayerSeenEntry(
-        override val id: String = "",
-        override val name: String = "",
-        val entity: Ref<out EntityInstanceEntry> = emptyRef(),
-        override val triggers: List<Ref<TriggerableEntry>> = emptyList()
+    override val id: String = "",
+    override val name: String = "",
+    val entity: Ref<out EntityInstanceEntry> = emptyRef(),
+    override val triggers: List<Ref<TriggerableEntry>> = emptyList(),
 ) : EventEntry
 
 class PlayerSeenEvent(val instance: Ref<out EntityInstanceEntry>, val player: Player) : Event() {
@@ -35,16 +35,16 @@ class PlayerSeenEvent(val instance: Ref<out EntityInstanceEntry>, val player: Pl
 }
 
 @Entry(
-        "on_player_lost",
-        "Trigger entries when a player leaves an entity's vision",
-        Colors.RED,
-        "mdi:eye-off"
+    "on_player_lost",
+    "Trigger entries when a player leaves an entity's vision",
+    Colors.RED,
+    "mdi:eye-off",
 )
 class PlayerLostEntry(
-        override val id: String = "",
-        override val name: String = "",
-        val entity: Ref<out EntityInstanceEntry> = emptyRef(),
-        override val triggers: List<Ref<TriggerableEntry>> = emptyList()
+    override val id: String = "",
+    override val name: String = "",
+    val entity: Ref<out EntityInstanceEntry> = emptyRef(),
+    override val triggers: List<Ref<TriggerableEntry>> = emptyList(),
 ) : EventEntry
 
 class PlayerLostEvent(val instance: Ref<out EntityInstanceEntry>, val player: Player) : Event() {
