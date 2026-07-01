@@ -9,17 +9,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./gradlew build
 
 # Build and copy JAR to local server extensions folder
-./gradlew copyJarToServer
+./gradlew copyJarToServer -PtypewriterExtensionDir="C:/path/to/Typewriter/extensions"
 ```
 
-The JAR outputs to `C:/Users/julie/Desktop/dev/plugins/Typewriter/extensions/VisionExtension-{version}.jar`.
+The JAR outputs to `build/libs/VisionExtension-{version}.jar` by default.
+`copyJarToServer` also accepts the `TYPEWRITER_EXTENSION_DIR` environment variable.
 
 ## Project Overview
 
 VisionExtension is a Kotlin-based Typewriter extension that provides NPC vision detection and patrol systems for Paper/Bukkit servers. It enables NPCs to detect players using field-of-view calculations, raycasts, and progressive detection mechanics.
 
 **Key dependencies:**
-- Typewriter engine (0.9.0-beta-169)
+- Typewriter engine (0.9.0-beta-174)
 - EntityExtension and RoadNetworkExtension (compile-only)
 - PacketEvents + EntityLib for client-side rendering
 
@@ -34,24 +35,30 @@ All activities are registered via `@Entry` annotations:
 | `vision_activity` | `VisionActivityEntry` | Core vision detection |
 | `patrol_vision_activity` | `PatrolVisionActivityEntry` | Sequential patrol + vision |
 | `random_patrol_vision_activity` | `RandomPatrolVisionActivityEntry` | Random patrol + vision |
-| `player_seen` | `PlayerSeenEntry` | Event trigger when player detected |
+| `on_player_seen` | `PlayerSeenEntry` | Event trigger when player detected |
+| `on_player_lost` | `PlayerLostEntry` | Event trigger when player is lost |
 
 ### Core Components
 
-**VisionActivityEntry.kt** - The main vision system:
-- `VisionActivityEntry`: Configuration data class with extensive parameters
-- `VisionConfig`: Data class for VisionActivity configuration
-- `VisionActivity`: Implements `EntityActivity` with per-tick detection
-- `VisionShape` enum: CONE, LINE, SPHERE detection geometries
+**de.chaos.entry** - Typewriter entry classes:
+- `VisionActivityEntry`, `ActivityVisionEntry`, deprecated patrol wrappers
+- `VisionConfigProvider`: maps entry fields to `VisionConfig`
 
-**BaseActivities.kt** - Patrol + Vision composition:
+**de.chaos.vision** - Core vision runtime:
+- `VisionActivity`: per-tick detection orchestration
+- `VisionConfig` / `NormalizedVisionConfig`: raw and runtime-normalized config
+- `VisionSensor`: shape/FOV/raycast checks
+- `DetectionTracker`, `DetectionProgressCalculator`, `DetectionIndicatorFormatter`
+
+**de.chaos.activity** - Patrol + Vision composition:
 - `PausableActivity<C>`: Wrapper that adds pause/resume to any EntityActivity
 - `PatrolVisionActivity`: Combines patrol + vision, pauses patrol when seeing players
 
-**ClientSideDisplayManager.kt** - Packet-based rendering:
+**de.chaos.display** - Packet-based rendering:
 - Creates client-side ITEM_DISPLAY entities via PacketEvents/EntityLib
 - Per-viewer entity pools with reuse
 - Point displays, line displays, and text indicators
+- `DisplayRuntime`: injectable PacketEvents/EntityLib adapter
 
 ### Detection Algorithm
 

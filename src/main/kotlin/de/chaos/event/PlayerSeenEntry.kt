@@ -1,4 +1,4 @@
-package de.chaos
+package de.chaos.event
 
 import com.typewritermc.core.books.pages.Colors
 import com.typewritermc.core.entries.Ref

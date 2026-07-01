@@ -1,18 +1,25 @@
-package de.chaos
+package de.chaos.activity
 
-import com.typewritermc.engine.paper.entry.entity.*
+import com.typewritermc.engine.paper.entry.entity.ActivityContext
+import com.typewritermc.engine.paper.entry.entity.EntityActivity
+import com.typewritermc.engine.paper.entry.entity.IdleActivity
+import com.typewritermc.engine.paper.entry.entity.PositionProperty
+import com.typewritermc.engine.paper.entry.entity.TickResult
 import com.typewritermc.engine.paper.entry.entries.EntityProperty
+import de.chaos.vision.VisionActivity
 
 /**
  * Wrapper that adds pause/stop functionality to any EntityActivity.
  * Used to pause patrol activities when the NPC is looking at a player.
  */
 class PausableActivity<C : ActivityContext>(
-    private val delegate: EntityActivity<C>
+    private val delegate: EntityActivity<in C>
 ) : EntityActivity<C> {
     private var paused = false
     private var idleActivity: IdleActivity? = null
-    private var needsReinit = false
+    private var delegateDisposedForPause = false
+    private var needsDelegateInitialize = false
+    private var delegateResumePosition: PositionProperty? = null
 
     override val currentPosition: PositionProperty
         get() = if (paused) idleActivity?.currentPosition ?: delegate.currentPosition else delegate.currentPosition
@@ -20,22 +27,16 @@ class PausableActivity<C : ActivityContext>(
     override val currentProperties: List<EntityProperty>
         get() = if (paused) idleActivity?.currentProperties ?: delegate.currentProperties else delegate.currentProperties
 
-    override fun initialize(context: C) {
-        delegate.initialize(context)
+    override fun initialize(context: C, position: PositionProperty) {
+        delegate.initialize(context, position)
     }
 
     override fun tick(context: C): TickResult {
         return if (paused) {
-            // When paused, tick the idle activity instead
             idleActivity?.tick(context) ?: TickResult.IGNORED
         } else {
-            // Reinitialize if we were previously paused and disposed
-            if (needsReinit) {
-                delegate.initialize(context)
-                needsReinit = false
-            }
-            val result = delegate.tick(context)
-            result
+            initializeDelegateIfNeeded(context)
+            delegate.tick(context)
         }
     }
 
@@ -44,23 +45,43 @@ class PausableActivity<C : ActivityContext>(
             // Create idle activity at current position and dispose delegate
             val pos = delegate.currentPosition
             delegate.dispose(context)
+            delegateDisposedForPause = true
             idleActivity = IdleActivity(pos)
-            idleActivity?.initialize(context)
-            needsReinit = true
+            idleActivity?.initialize(context, pos)
+            needsDelegateInitialize = true
+            delegateResumePosition = pos
         }
         paused = true
     }
 
-    fun resume() {
-        paused = false
+    fun resume(context: C) {
+        idleActivity?.dispose(context)
         idleActivity = null
+        paused = false
+        initializeDelegateIfNeeded(context)
     }
 
     val isPaused: Boolean get() = paused
 
     override fun dispose(context: C) {
-        delegate.dispose(context)
+        if (!delegateDisposedForPause) {
+            delegate.dispose(context)
+        }
+        idleActivity?.dispose(context)
         idleActivity = null
+        paused = false
+        needsDelegateInitialize = false
+        delegateResumePosition = null
+        delegateDisposedForPause = false
+    }
+
+    private fun initializeDelegateIfNeeded(context: C) {
+        if (!needsDelegateInitialize) return
+
+        delegate.initialize(context, delegateResumePosition ?: delegate.currentPosition)
+        delegateDisposedForPause = false
+        needsDelegateInitialize = false
+        delegateResumePosition = null
     }
 }
 
@@ -74,33 +95,23 @@ class PatrolVisionActivity(
     private val stopWhenLooking: Boolean,
     private val resumeDelayTicks: Int = 10,
 ) : EntityActivity<ActivityContext> {
-    private var ticksSinceLastSeen: Int = Int.MAX_VALUE  // Start high so patrol runs immediately
-    private var hasEverSeenPlayer: Boolean = false
+    private var ticksSinceLastSeen: Int = Int.MAX_VALUE
+    private var hasDetectionPauseStarted: Boolean = false
 
     override var currentPosition: PositionProperty
-        get() = if (vision.isSeeingPlayer) {
-            patrol.currentPosition.withRotation(vision.currentPosition.yaw, vision.currentPosition.pitch)
-        } else {
-            patrol.currentPosition
-        }
+        get() = combinedPosition()
         set(_) { /* Position is managed by patrol activity */ }
 
     override val currentProperties: List<EntityProperty>
         get() {
-            return if (vision.isSeeingPlayer) {
-                // When seeing player: use combined position (patrol location + vision rotation)
-                val visionProps = vision.currentProperties.filterNot { it is PositionProperty }
-                listOf(currentPosition) + visionProps
-            } else {
-                // Normal: use patrol properties + vision non-position properties
-                val visionProps = vision.currentProperties.filterNot { it is PositionProperty }
-                patrol.currentProperties + visionProps
-            }
+            val patrolProps = patrol.currentProperties.filterNot { it is PositionProperty }
+            val visionProps = vision.currentProperties.filterNot { it is PositionProperty }
+            return listOf(currentPosition) + patrolProps + visionProps
         }
 
-    override fun initialize(context: ActivityContext) {
-        patrol.initialize(context)
-        vision.initialize(context)
+    override fun initialize(context: ActivityContext, position: PositionProperty) {
+        patrol.initialize(context, position)
+        vision.initialize(context, position)
     }
 
     override fun tick(context: ActivityContext): TickResult {
@@ -114,20 +125,17 @@ class PatrolVisionActivity(
 
         val patrolResult = when {
             stopWhenLooking && vision.isSeeingPlayer -> {
-                // Momentan Spieler gesehen - Patrol pausieren
                 patrol.pause(context)
                 ticksSinceLastSeen = 0
-                hasEverSeenPlayer = true
+                hasDetectionPauseStarted = true
                 TickResult.CONSUMED
             }
-            hasEverSeenPlayer && ticksSinceLastSeen < resumeDelayTicks -> {
-                // Spieler kürzlich verloren - warte kurz bevor Patrol weiterläuft
+            hasDetectionPauseStarted && ticksSinceLastSeen < resumeDelayTicks -> {
                 ticksSinceLastSeen++
                 TickResult.CONSUMED
             }
             else -> {
-                // Nichts gesehen oder Delay vorbei - Patrol fortsetzen
-                patrol.resume()
+                patrol.resume(context)
                 patrol.tick(context)
             }
         }
@@ -142,5 +150,10 @@ class PatrolVisionActivity(
     override fun dispose(context: ActivityContext) {
         patrol.dispose(context)
         vision.dispose(context)
+    }
+
+    private fun combinedPosition(): PositionProperty {
+        val patrolPosition = patrol.currentPosition
+        return patrolPosition.withRotation(vision.currentPosition.yaw, vision.currentPosition.pitch)
     }
 }
