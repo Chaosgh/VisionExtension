@@ -1,0 +1,189 @@
+name: Build & Deploy → main
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    outputs:
+      jar_path:    ${{ steps.find_jar.outputs.jar_path }}
+      jar_name:    ${{ steps.find_jar.outputs.jar_name }}
+      plugin_base: ${{ steps.find_jar.outputs.plugin_base }}
+
+    steps:
+      # ── 1. Code auschecken ──────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Java einrichten ──────────────────────────────────────────────────
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      # ── 3. Gradle Cache ─────────────────────────────────────────────────────
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: ${{ runner.os }}-gradle-
+
+      # ── 4. Gradlew ausführbar machen ────────────────────────────────────────
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      # ── 5. Build ────────────────────────────────────────────────────────────
+      - name: Build with Gradle
+        run: ./gradlew build --no-daemon -Pgpr.user=${{ github.actor }} -Pgpr.key=${{ secrets.GH_PACKAGES_TOKEN }}
+
+      # ── 6. JAR-Datei & Plugin-Namen ermitteln ───────────────────────────────
+      - name: Find JAR file and plugin name
+        id: find_jar
+        run: |
+          JAR_PATH=$(find build/libs/ -name "*.jar" \
+            ! -name "*-sources.jar" \
+            ! -name "*-javadoc.jar" \
+            -maxdepth 1 2>/dev/null | head -n 1)
+          
+          if [ -z "$JAR_PATH" ]; then
+            echo "::error::Keine JAR-Datei in build/libs/ gefunden!"
+            exit 1
+          fi
+          
+          JAR_NAME=$(basename "$JAR_PATH")
+          PLUGIN_BASE=$(echo "$JAR_NAME" | sed 's/-[0-9].*//')
+          
+          echo "jar_path=$JAR_PATH"       >> "$GITHUB_OUTPUT"
+          echo "jar_name=$JAR_NAME"       >> "$GITHUB_OUTPUT"
+          echo "plugin_base=$PLUGIN_BASE" >> "$GITHUB_OUTPUT"
+          echo "✅ JAR gefunden: $JAR_PATH"
+          echo "🔍 Plugin-Basisname: $PLUGIN_BASE"
+
+      # ── 7. JAR als Artifact speichern (für den Deploy-Job) ──────────────────
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-jar
+          path: ${{ steps.find_jar.outputs.jar_path }}
+          retention-days: 1
+
+  # ── Matrix aus Secret aufbauen ─────────────────────────────────────────────
+  build-matrix:
+    name: Prepare deploy matrix
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Build server matrix from secret
+        id: set-matrix
+        run: |
+          IDS="${{ secrets.PTERODACTYL_SERVER_IDS_MAIN }}"
+          JSON=$(echo "$IDS" | python3 -c "
+          import sys, json
+          ids = [s.strip() for s in sys.stdin.read().split(',') if s.strip()]
+          matrix = {'include': [{'server_id': sid} for sid in ids]}
+          print(json.dumps(matrix))
+          ")
+          echo "matrix=$JSON" >> "$GITHUB_OUTPUT"
+          echo "✅ Matrix: $JSON"
+
+  deploy:
+    name: Deploy → ${{ matrix.server_id }}
+    needs: [build, build-matrix]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.build-matrix.outputs.matrix) }}
+
+    steps:
+      # ── JAR aus dem Build-Job holen ─────────────────────────────────────────
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: plugin-jar
+          path: build/libs/
+
+      # ── Alte JARs auf dem Server suchen & löschen ──────────────────────────
+      - name: Delete old plugin JARs on server
+        run: |
+          RESPONSE=$(curl --fail --silent --show-error \
+            -X GET \
+            "${{ secrets.PTERODACTYL_URL }}/api/client/servers/${{ matrix.server_id }}/files/list?directory=/plugins/Typewriter/extensions" \
+            -H "Authorization: Bearer ${{ secrets.PTERODACTYL_API_KEY }}" \
+            -H "Accept: application/json")
+          
+          PLUGIN_BASE="${{ needs.build.outputs.plugin_base }}"
+          
+          MATCHING_JARS=$(echo "$RESPONSE" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          files = data.get('data', [])
+          matches = [
+              f['attributes']['name']
+              for f in files
+              if f['attributes']['name'].startswith('$PLUGIN_BASE')
+              and f['attributes']['name'].endswith('.jar')
+          ]
+          print(json.dumps(matches))
+          ")
+          
+          echo "🗑️  Server ${{ matrix.server_id }} — alte JARs: $MATCHING_JARS"
+          
+          if [ "$MATCHING_JARS" = "[]" ]; then
+            echo "ℹ️  Keine alten JARs gefunden – nichts zu löschen"
+          else
+            curl --fail --silent --show-error \
+              -X POST \
+              "${{ secrets.PTERODACTYL_URL }}/api/client/servers/${{ matrix.server_id }}/files/delete" \
+              -H "Authorization: Bearer ${{ secrets.PTERODACTYL_API_KEY }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"root\": \"/plugins/Typewriter/extensions\", \"files\": $MATCHING_JARS}"
+            echo "✅ Alte JARs gelöscht"
+          fi
+
+      # ── Upload-URL anfordern ────────────────────────────────────────────────
+      - name: Request upload URL
+        id: upload_url
+        run: |
+          RESPONSE=$(curl --fail --silent --show-error \
+            -X GET \
+            "${{ secrets.PTERODACTYL_URL }}/api/client/servers/${{ matrix.server_id }}/files/upload" \
+            -H "Authorization: Bearer ${{ secrets.PTERODACTYL_API_KEY }}" \
+            -H "Accept: application/json")
+          
+          UPLOAD_URL=$(echo "$RESPONSE" | python3 -c \
+            "import sys,json; print(json.load(sys.stdin)['attributes']['url'])")
+          
+          if [ -z "$UPLOAD_URL" ]; then
+            echo "::error::Konnte keine Upload-URL für Server ${{ matrix.server_id }} erhalten!"
+            echo "$RESPONSE"
+            exit 1
+          fi
+          
+          echo "upload_url=$UPLOAD_URL" >> "$GITHUB_OUTPUT"
+          echo "✅ Upload-URL erhalten"
+
+      # ── Neue JAR hochladen ──────────────────────────────────────────────────
+      - name: Upload JAR to server
+        run: |
+          JAR_FILE=$(find build/libs/ -name "*.jar" \
+            ! -name "*-sources.jar" \
+            ! -name "*-javadoc.jar" \
+            -maxdepth 1 | head -n 1)
+          
+          curl --fail --silent --show-error \
+            -X POST \
+            "${{ steps.upload_url.outputs.upload_url }}&directory=/plugins/Typewriter/extensions" \
+            -H "Authorization: Bearer ${{ secrets.PTERODACTYL_API_KEY }}" \
+            -F "files=@$JAR_FILE"
+          
+          echo "✅ ${{ needs.build.outputs.jar_name }} → Server ${{ matrix.server_id }} erfolgreich!"
