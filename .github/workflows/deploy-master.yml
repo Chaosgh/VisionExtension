@@ -42,7 +42,7 @@ jobs:
 
       # ── 5. Build ────────────────────────────────────────────────────────────
       - name: Build with Gradle
-        run: ./gradlew build -x test --no-daemon -Pgpr.user=${{ github.actor }} -Pgpr.key=${{ secrets.GH_PACKAGES_TOKEN }}
+        run: ./gradlew build --no-daemon -Pgpr.user=${{ github.actor }} -Pgpr.key=${{ secrets.GH_PACKAGES_TOKEN }}
 
       # ── 6. JAR-Datei & Plugin-Namen ermitteln ───────────────────────────────
       - name: Find JAR file and plugin name
