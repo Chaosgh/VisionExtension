@@ -23,7 +23,6 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.110.0")
     testImplementation("com.typewritermc:engine-paper:0.9.0")
-    testImplementation("io.papermc.paper:paper-api:26.1.2.build.69-stable")
     testImplementation("com.github.retrooper:packetevents-api:2.11.1")
     testImplementation("com.github.retrooper:packetevents-spigot:2.11.1")
     testImplementation("com.typewritermc:EntityExtension:0.9.0")
