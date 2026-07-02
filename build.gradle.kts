@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "2.4.0"
+    kotlin("jvm") version "2.2.10"
     id("com.typewritermc.module-plugin") version "2.1.0"
     id("org.owasp.dependencycheck") version "12.2.2"
     id("org.jlleitschuh.gradle.ktlint") version "12.1.2"
@@ -21,9 +21,8 @@ dependencies {
 
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
-    testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v26.1.2:4.114.0")
+    testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.110.0")
     testImplementation("com.typewritermc:engine-paper:0.9.0")
-    testImplementation("io.papermc.paper:paper-api:26.1.2.build.72-stable")
     testImplementation("com.github.retrooper:packetevents-api:2.11.1")
     testImplementation("com.github.retrooper:packetevents-spigot:2.11.1")
     testImplementation("com.typewritermc:EntityExtension:0.9.0")
@@ -49,7 +48,7 @@ typewriter {
 }
 
 kotlin {
-    jvmToolchain(25)
+    jvmToolchain(21)
 }
 
 ktlint {
@@ -91,12 +90,4 @@ tasks.test {
 
 tasks.named("check") {
     dependsOn(tasks.named("ktlintCheck"))
-}
-
-// Typewriter's KSP processor uses the ktor 3.x client-plugin API; an old transitive
-// pins ktor 2.3.12 which lacks it. Force ktor 3.x on the KSP classpath.
-configurations.matching { it.name.startsWith("ksp") }.configureEach {
-    resolutionStrategy.eachDependency {
-        if (requested.group == "io.ktor") useVersion("3.0.3")
-    }
 }
