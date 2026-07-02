@@ -1,8 +1,8 @@
-# Build output
-target/
-build/
-.gradle/
-out/
+# Build output (anchored to repo root so it never matches a source package)
+/target/
+/build/
+/.gradle/
+/out/
 
 # IDE
 .idea/
