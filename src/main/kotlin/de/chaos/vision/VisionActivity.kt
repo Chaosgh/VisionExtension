@@ -83,7 +83,8 @@ class VisionActivity private constructor(
 
         applyRotationBeforeScan()
 
-        val viewers = context.viewers.filter { it.isLookable }
+        val allViewers = context.viewers
+        val viewers = allViewers.filter { it.isLookable }
         val currentViewerIds = viewers.mapTo(HashSet(viewers.size)) { it.uniqueId }
         val updateDisplays = showDisplays && tickIndex % displayUpdateIntervalTicks == 0L
 
